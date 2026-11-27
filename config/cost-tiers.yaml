@@ -9,6 +9,7 @@ tiers:
   T0_local:
     label: "T0 Local ($0)"
     cost_class: free
+    relative_cost: 0
     providers:
       local_mlx:
         runtime: "MLX / LM Studio"
@@ -28,6 +29,7 @@ tiers:
   T1_scout:
     label: "T1 Scout (Fast / Cheap)"
     cost_class: low
+    relative_cost: 1
     providers:
       claude:
         alias: "haiku"
@@ -53,6 +55,7 @@ tiers:
   T2_builder:
     label: "T2 Builder (Balanced Default)"
     cost_class: medium
+    relative_cost: 20
     providers:
       claude:
         alias: "sonnet"
@@ -77,6 +80,7 @@ tiers:
   T3_architect:
     label: "T3 Architect (Frontier / High-Reasoning)"
     cost_class: high
+    relative_cost: 40
     providers:
       claude:
         alias: "opus"

@@ -161,8 +161,12 @@ if telemetry is None:
     sys.exit(0)
 
 # Deterministic ground truth from repo-scoped turn-state.json + active .count files
+SAFE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+SAFE_SIG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
+
 passed = True
 max_strikes_seen = 0
+failure_signatures = []
 repo_strike_dir = os.environ.get("AXN_REPO_STRIKE_DIR", "")
 turn_state_file = os.path.join(repo_strike_dir, "turn-state.json") if repo_strike_dir else ""
 
@@ -175,6 +179,13 @@ if repo_strike_dir and os.path.isdir(repo_strike_dir) and not os.path.islink(rep
                     max_strikes_seen = max(0, ts["max_strikes_seen"])
                 if ts.get("stop_gate_passed") is False:
                     passed = False
+                raw_sigs = ts.get("failure_signatures")
+                if isinstance(raw_sigs, list):
+                    for s in raw_sigs:
+                        if isinstance(s, str) and SAFE_SIG_RE.match(s) and s not in failure_signatures:
+                            failure_signatures.append(s)
+                            if len(failure_signatures) >= 10:
+                                break
         except Exception:
             pass
         # Consume & reset turn-state.json for next turn
@@ -208,10 +219,21 @@ try:
 except Exception:
     llm_retries = 0
 
+raw_instincts = telemetry.get("instincts_used")
+instincts_used = []
+if isinstance(raw_instincts, list):
+    for item in raw_instincts:
+        if isinstance(item, str) and SAFE_ID_RE.match(item) and item not in instincts_used:
+            instincts_used.append(item)
+            if len(instincts_used) >= 16:
+                break
+
 telemetry["passed"] = passed
 telemetry["retries"] = max(llm_retries, max_strikes_seen)
 if "escalated_effort" not in telemetry:
     telemetry["escalated_effort"] = False
+telemetry["instincts_used"] = instincts_used
+telemetry["failure_signatures"] = failure_signatures
 
 print(json.dumps(telemetry, separators=(",", ":")))
 ' 2>/dev/null || true)"

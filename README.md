@@ -47,18 +47,19 @@ AXN solves this at the **harness layer**—optimizing your active context window
 
 ## The AXN Engineering Loop
 
-AXN standardizes autonomous development around a closed, self-healing workflow:
+AXN standardizes autonomous development around a closed, self-healing 7-stage ROI loop:
 
 ```text
-plan ──▶ test ──▶ implement ──▶ review ──▶ verify ──▶ remember ──▶ improve
+Preflight ──▶ Rank ──▶ Route ──▶ Verify ──▶ Escalate ──▶ Attribute ──▶ Distill/Prune
 ```
 
-1.  **Plan:** Map repository boundaries (`.ai/MAP.md`) and design before writing a single line.
-2.  **Test:** Define acceptance criteria and failing test cases up front.
-3.  **Implement:** Execute edits under `PreToolUse` blast-radius protection and `PostToolUse` scoped typechecks.
-4.  **Review:** Run `adversarial-diff-audit` to catch auth flaws, race conditions, and memory leaks.
-5.  **Verify:** Enforce `stop-gate-verifier`—the agent cannot finish until builds and tests are green.
-6.  **Remember & Improve:** Distill recurring fixes into durable skills and instincts for future sessions.
+1.  **Preflight:** Read `.ai/MAP.md`, consult `instincts/INDEX.md`, and check repo/rate/quota limits before deep reads.
+2.  **Rank:** Prioritize highest-ROI tasks and define failing test cases or acceptance gates up front.
+3.  **Route:** Query `scripts/learn-router.py --recommend` to pick the lowest expected-cost safe tier (falling back to `config/cost-tiers.yaml`).
+4.  **Verify:** Execute edits under `PreToolUse` blast-radius protection, `PostToolUse` scoped typechecks (`auto-verify-loop`), and `stop-gate-verifier` (`.ai/verify.cmd`).
+5.  **Escalate:** Step reasoning effort (`low -> medium -> high`) before upgrading tier after 2 failed attempts on the same root cause.
+6.  **Attribute:** Emit concrete `AXN_TELEMETRY` (with `instincts_used`) so `orchestrator-feedback.sh` records deterministic outcome and failure signatures.
+7.  **Distill & Prune:** Run `scripts/learn-router.py --roi-report` to promote recurring failure signatures into `instincts/` or `hooks/` and prune unused instincts.
 
 ---
 
@@ -285,12 +286,15 @@ AXN routes work across **4 cost tiers** for Claude Code, Codex CLI, Cursor, Gemi
 
 - **Effort-Before-Tier:** Step up reasoning effort (`low -> medium -> high`) before upgrading to a higher tier.
 - **2-Strike Escalation Gate:** Start implementation at **T2 Builder**; escalate to **T3 Architect** only after `auto-verify-loop` or `stop-gate-verifier` fails twice on the same root cause.
-- **Smart Learning Orchestrator (`scripts/learn-router.py`):** Tracks per-tier EMA scores and sample counts per `(task_type, stack)` bucket with cold-start acceleration (`alpha=0.4` for `<3` tier samples, `0.2` thereafter), cross-platform file locking, and bounded ledger rotation (`10,000` lines). Query recommendations or inspect learned weights:
+- **Expected-Cost & ROI Smart Learning (`scripts/learn-router.py`):** Minimizes expected cost `E[cost] = cost(tier) + (1 - p_eff) * escalation_cost(tier)` using `relative_cost` (`T0=0, T1=1, T2=20, T3=40`) from `config/cost-tiers.yaml`, task safety floors (`0.90` for `security_audit`/`architecture_plan`/`race_condition_debug`, `0.75` otherwise), cold-start EMA (`alpha=0.4` for `<3` tier samples, `0.2` thereafter), and `14`-day staleness re-probing. Tracks `instincts_used` pass-rate lift and sanitized `failure_signatures`:
   ```bash
-  # Query cheapest proven tier (tier_samples >= 3 and score >= 0.85, else null -> config/cost-tiers.yaml)
+  # Query lowest expected-cost safe tier (falls back to config/cost-tiers.yaml when null)
   python3 scripts/learn-router.py --recommend --task-type feature_impl --stack typescript
 
-  # Inspect all learned buckets or replay routing-ledger.jsonl
+  # Inspect cost savings vs always-T2/T3, instinct lift/bloat, and recurring failure promotion candidates
+  python3 scripts/learn-router.py --roi-report
+
+  # Inspect raw weights or replay routing-ledger.jsonl
   python3 scripts/learn-router.py --summary
   python3 scripts/learn-router.py --recompute
   ```

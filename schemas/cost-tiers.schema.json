@@ -11,10 +11,10 @@
       "type": "object",
       "required": ["T0_local", "T1_scout", "T2_builder", "T3_architect"],
       "properties": {
-        "T0_local": { "type": "object", "required": ["providers", "tasks"] },
-        "T1_scout": { "type": "object", "required": ["providers", "tasks"] },
-        "T2_builder": { "type": "object", "required": ["providers", "tasks"] },
-        "T3_architect": { "type": "object", "required": ["providers", "tasks"] }
+        "T0_local": { "type": "object", "required": ["relative_cost", "providers", "tasks"] },
+        "T1_scout": { "type": "object", "required": ["relative_cost", "providers", "tasks"] },
+        "T2_builder": { "type": "object", "required": ["relative_cost", "providers", "tasks"] },
+        "T3_architect": { "type": "object", "required": ["relative_cost", "providers", "tasks"] }
       }
     },
     "escalation": {

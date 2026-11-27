@@ -93,6 +93,7 @@ TURN_STATE_FILE="${STRIKE_DIR}/turn-state.json"
 
 update_turn_state() {
   local seen_count="$1"
+  local fail_sig="${2:-}"
   local py_bin=""
   if command -v python3 >/dev/null 2>&1; then
     py_bin="python3"
@@ -100,10 +101,11 @@ update_turn_state() {
     py_bin="python"
   fi
   if [ -n "$py_bin" ]; then
-    AXN_TURN_STATE="$TURN_STATE_FILE" AXN_SEEN="$seen_count" "$py_bin" -c '
-import json, os
+    AXN_TURN_STATE="$TURN_STATE_FILE" AXN_SEEN="$seen_count" AXN_FAIL_SIG="$fail_sig" "$py_bin" -c '
+import json, os, re
 fp = os.environ["AXN_TURN_STATE"]
 seen = int(os.environ.get("AXN_SEEN", "0"))
+sig = os.environ.get("AXN_FAIL_SIG", "").strip()
 if os.path.islink(fp):
     os.unlink(fp)
 data = {}
@@ -118,6 +120,13 @@ prev = data.get("max_strikes_seen", 0)
 if not isinstance(prev, int):
     prev = 0
 data["max_strikes_seen"] = max(prev, seen)
+sigs = data.get("failure_signatures")
+if not isinstance(sigs, list):
+    sigs = []
+sigs = [s for s in sigs if isinstance(s, str) and re.match(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$", s)]
+if sig and re.match(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$", sig) and sig not in sigs and len(sigs) < 10:
+    sigs.append(sig)
+data["failure_signatures"] = sigs[:10]
 with open(fp, "w", encoding="utf-8") as f:
     json.dump(data, f, separators=(",", ":"))
 ' 2>/dev/null || true
@@ -126,6 +135,22 @@ with open(fp, "w", encoding="utf-8") as f:
 
 clear_strikes() {
   [ -f "$STRIKE_FILE" ] && rm -f "$STRIKE_FILE" 2>/dev/null || true
+}
+
+build_fail_sig() {
+  local raw_label="$1"
+  local clean_label
+  clean_label="$(printf '%s' "$raw_label" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9_-' | tr -s '-')"
+  [ -z "$clean_label" ] && clean_label="check"
+  local base ext
+  base="$(basename "$FILE_PATH")"
+  case "$base" in
+    *.*) ext=".${base##*.}" ;;
+    *) ext="file" ;;
+  esac
+  ext="$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9.')"
+  [ -z "$ext" ] && ext="file"
+  printf '%s:%s' "$clean_label" "$ext"
 }
 
 record_strike() {
@@ -144,7 +169,9 @@ record_strike() {
   fi
   count=$((count + 1))
   printf '%s' "$count" > "$STRIKE_FILE" 2>/dev/null || true
-  update_turn_state "$count"
+  local fail_sig
+  fail_sig="$(build_fail_sig "$label")"
+  update_turn_state "$count" "$fail_sig"
   if [ "$count" -ge "$MAX_RETRIES" ]; then
     printf '[AXN cost-routing] 2-STRIKE ESCALATION HINT (strike %s/%s on %s [%s]): Per config/cost-tiers.yaml, bump reasoning effort first (low -> medium -> high) or escalate T2_builder -> T3_architect.\n' \
       "$count" "$MAX_RETRIES" "$FILE_PATH" "$label" >&2

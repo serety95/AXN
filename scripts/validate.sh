@@ -217,8 +217,10 @@ else:
         for tk in ("T0_local", "T1_scout", "T2_builder", "T3_architect"):
             if tk not in tiers_obj:
                 errors.append(f"config/cost-tiers.yaml: missing tier '{tk}'")
+            elif not isinstance(tiers_obj[tk], dict) or not isinstance(tiers_obj[tk].get("relative_cost"), (int, float)):
+                errors.append(f"config/cost-tiers.yaml: tier '{tk}' missing numeric 'relative_cost'")
     except ImportError:
-        for req in ("default_execution_tier:", "default_subagent_tier:", "T0_local:", "T1_scout:", "T2_builder:", "T3_architect:", "escalation:"):
+        for req in ("default_execution_tier:", "default_subagent_tier:", "T0_local:", "T1_scout:", "T2_builder:", "T3_architect:", "relative_cost:", "escalation:"):
             if req not in ct_text:
                 errors.append(f"config/cost-tiers.yaml: missing '{req}'")
 

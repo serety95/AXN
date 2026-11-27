@@ -4,18 +4,19 @@ Follow this baseline alongside any repository-local `AGENTS.md` or `CLAUDE.md` (
 
 ---
 
-## Core Engineering Loop
+## Core ROI Engineering Loop
 
 ```text
-plan -> test -> implement -> review -> verify -> remember -> improve
+Preflight -> Rank -> Route -> Verify -> Escalate -> Attribute -> Distill/Prune
 ```
 
-1. **Plan:** Read `.ai/MAP.md` (if present) or map module boundaries before editing. State assumptions and acceptance criteria up front.
-2. **Test:** Define or locate failing test cases / verification commands before writing implementation code.
-3. **Implement:** Make the smallest complete change. Respect existing patterns, keep functions focused, and never duplicate logic.
-4. **Review:** Audit your diff for auth/permission flaws, injection vectors, race conditions, resource leaks, and unhandled error paths.
-5. **Verify:** Run the repository's verification gate (`.ai/verify.cmd` or test/typecheck/lint suite) after your final edit. Never claim "done" on unverified or failing checks.
-6. **Remember & Improve:** Distill non-obvious recurring fixes or environment quirks into `instincts/` or `skills/`.
+1. **Preflight:** Read `.ai/MAP.md` (if present), consult `instincts/INDEX.md`, and check repo/rate/quota limits before deep reads.
+2. **Rank:** Prioritize highest-ROI tasks; define failing tests or acceptance gates before editing.
+3. **Route:** Query `python3 scripts/learn-router.py --recommend --task-type <type> --stack <stack>` (falling back to `config/cost-tiers.yaml` when `recommended_tier` is `null`).
+4. **Verify:** Run scoped checks (`auto-verify-loop`) and `.ai/verify.cmd` (`stop-gate-verifier`) after edits. Never claim done on unverified checks.
+5. **Escalate:** Step reasoning effort (`low -> medium -> high`) before upgrading tier after **2** failed attempts on the same root cause.
+6. **Attribute:** Emit concrete `AXN_TELEMETRY` (with `instincts_used` when applied) so `orchestrator-feedback.sh` records deterministic outcome and failure signatures.
+7. **Distill & Prune:** Periodically run `python3 scripts/learn-router.py --roi-report` to promote recurring failures into `instincts/` or `hooks/` and prune unused instincts.
 
 ---
 

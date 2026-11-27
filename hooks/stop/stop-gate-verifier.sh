@@ -122,6 +122,7 @@ TURN_STATE_FILE="${STRIKE_DIR}/turn-state.json"
 update_turn_state() {
   local gate_passed="$1"
   local seen_count="$2"
+  local fail_sig="${3:-}"
   mkdir -p "$STRIKE_DIR" 2>/dev/null || return 0
   [ -L "$STRIKE_DIR" ] && return 0
   local py_bin=""
@@ -131,11 +132,12 @@ update_turn_state() {
     py_bin="python"
   fi
   if [ -n "$py_bin" ]; then
-    AXN_TURN_STATE="$TURN_STATE_FILE" AXN_GATE_PASSED="$gate_passed" AXN_SEEN="$seen_count" "$py_bin" -c '
-import json, os
+    AXN_TURN_STATE="$TURN_STATE_FILE" AXN_GATE_PASSED="$gate_passed" AXN_SEEN="$seen_count" AXN_FAIL_SIG="$fail_sig" "$py_bin" -c '
+import json, os, re
 fp = os.environ["AXN_TURN_STATE"]
 gate = os.environ.get("AXN_GATE_PASSED", "true") == "true"
 seen = int(os.environ.get("AXN_SEEN", "0"))
+sig = os.environ.get("AXN_FAIL_SIG", "").strip()
 if os.path.islink(fp):
     os.unlink(fp)
 data = {}
@@ -151,6 +153,13 @@ if not isinstance(prev, int):
     prev = 0
 data["max_strikes_seen"] = max(prev, seen)
 data["stop_gate_passed"] = gate
+sigs = data.get("failure_signatures")
+if not isinstance(sigs, list):
+    sigs = []
+sigs = [s for s in sigs if isinstance(s, str) and re.match(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$", s)]
+if sig and re.match(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$", sig) and sig not in sigs and len(sigs) < 10:
+    sigs.append(sig)
+data["failure_signatures"] = sigs[:10]
 with open(fp, "w", encoding="utf-8") as f:
     json.dump(data, f, separators=(",", ":"))
 ' 2>/dev/null || true
@@ -158,8 +167,17 @@ with open(fp, "w", encoding="utf-8") as f:
 }
 
 clear_strikes() {
-  update_turn_state "true" "0"
+  update_turn_state "true" "0" ""
   [ -f "$STRIKE_FILE" ] && rm -f "$STRIKE_FILE" 2>/dev/null || true
+}
+
+build_stop_sig() {
+  local first_tok
+  first_tok="$(printf '%s' "$VERIFY_CMD" | awk '{print $1}')"
+  first_tok="$(basename "$first_tok" 2>/dev/null || printf '%s' "$first_tok")"
+  first_tok="$(printf '%s' "$first_tok" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')"
+  [ -z "$first_tok" ] && first_tok="custom"
+  printf 'stop-gate:%s' "$first_tok"
 }
 
 record_strike() {
@@ -177,7 +195,9 @@ record_strike() {
   fi
   count=$((count + 1))
   printf '%s' "$count" > "$STRIKE_FILE" 2>/dev/null || true
-  update_turn_state "false" "$count"
+  local fail_sig
+  fail_sig="$(build_stop_sig)"
+  update_turn_state "false" "$count" "$fail_sig"
   if [ "$count" -ge "$MAX_RETRIES" ]; then
     printf '[AXN cost-routing] 2-STRIKE ESCALATION HINT (strike %s/%s on %s): Per config/cost-tiers.yaml, bump reasoning effort first (low -> medium -> high) or escalate T2_builder -> T3_architect.\n' \
       "$count" "$MAX_RETRIES" "$VERIFY_CMD" >&2
