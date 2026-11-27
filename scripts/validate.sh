@@ -233,6 +233,23 @@ PYEOF
   else
     FAILURES=$((FAILURES + 1))
   fi
+
+  # 5. Python syntax compile & learn-router.py self-test
+  if [[ -f "$AXN_ROOT/scripts/learn-router.py" ]]; then
+    tmp_pycache="$(mktemp -d)"
+    if PYTHONPYCACHEPREFIX="$tmp_pycache" "$PYTHON_BIN" -m py_compile "$AXN_ROOT/scripts/learn-router.py"; then
+      pass "Python py_compile passed for scripts/learn-router.py"
+    else
+      fail "Python py_compile failed for scripts/learn-router.py"
+    fi
+    rm -rf "$tmp_pycache"
+
+    if "$PYTHON_BIN" "$AXN_ROOT/scripts/learn-router.py" --self-test; then
+      :
+    else
+      fail "scripts/learn-router.py --self-test failed"
+    fi
+  fi
 else
   warn "python/python3 not found; skipping frontmatter, Unicode, and JSON checks"
 fi

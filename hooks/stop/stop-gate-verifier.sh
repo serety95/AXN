@@ -111,17 +111,60 @@ if [ -z "$VERIFY_CMD" ]; then
   exit 0
 fi
 
-STRIKE_DIR="${AXN_STRIKE_DIR:-${TMPDIR:-/tmp}/axn-strikes}"
+BASE_STRIKE_DIR="${AXN_STRIKE_DIR:-${TMPDIR:-/tmp}/axn-strikes}"
+REPO_KEY="$(printf '%s' "$REPO_ROOT" | cksum | awk '{print $1"-"$2}')"
+STRIKE_DIR="${BASE_STRIKE_DIR}/${REPO_KEY}"
 MAX_RETRIES="${AXN_MAX_RETRIES_BEFORE_ESCALATION:-2}"
 STRIKE_KEY="$(printf '%s' "stop-gate:${REPO_ROOT}:${VERIFY_CMD}" | cksum | awk '{print $1"-"$2}')"
 STRIKE_FILE="${STRIKE_DIR}/${STRIKE_KEY}.count"
+TURN_STATE_FILE="${STRIKE_DIR}/turn-state.json"
+
+update_turn_state() {
+  local gate_passed="$1"
+  local seen_count="$2"
+  mkdir -p "$STRIKE_DIR" 2>/dev/null || return 0
+  [ -L "$STRIKE_DIR" ] && return 0
+  local py_bin=""
+  if command -v python3 >/dev/null 2>&1; then
+    py_bin="python3"
+  elif command -v python >/dev/null 2>&1; then
+    py_bin="python"
+  fi
+  if [ -n "$py_bin" ]; then
+    AXN_TURN_STATE="$TURN_STATE_FILE" AXN_GATE_PASSED="$gate_passed" AXN_SEEN="$seen_count" "$py_bin" -c '
+import json, os
+fp = os.environ["AXN_TURN_STATE"]
+gate = os.environ.get("AXN_GATE_PASSED", "true") == "true"
+seen = int(os.environ.get("AXN_SEEN", "0"))
+if os.path.islink(fp):
+    os.unlink(fp)
+data = {}
+if os.path.isfile(fp):
+    try:
+        data = json.load(open(fp, "r", encoding="utf-8"))
+        if not isinstance(data, dict):
+            data = {}
+    except Exception:
+        data = {}
+prev = data.get("max_strikes_seen", 0)
+if not isinstance(prev, int):
+    prev = 0
+data["max_strikes_seen"] = max(prev, seen)
+data["stop_gate_passed"] = gate
+with open(fp, "w", encoding="utf-8") as f:
+    json.dump(data, f, separators=(",", ":"))
+' 2>/dev/null || true
+  fi
+}
 
 clear_strikes() {
+  update_turn_state "true" "0"
   [ -f "$STRIKE_FILE" ] && rm -f "$STRIKE_FILE" 2>/dev/null || true
 }
 
 record_strike() {
   mkdir -p "$STRIKE_DIR" 2>/dev/null || return 0
+  [ -L "$STRIKE_DIR" ] && return 0
   [ -L "$STRIKE_FILE" ] && rm -f "$STRIKE_FILE" 2>/dev/null || true
   local count=0
   if [ -f "$STRIKE_FILE" ]; then
@@ -134,6 +177,7 @@ record_strike() {
   fi
   count=$((count + 1))
   printf '%s' "$count" > "$STRIKE_FILE" 2>/dev/null || true
+  update_turn_state "false" "$count"
   if [ "$count" -ge "$MAX_RETRIES" ]; then
     printf '[AXN cost-routing] 2-STRIKE ESCALATION HINT (strike %s/%s on %s): Per config/cost-tiers.yaml, bump reasoning effort first (low -> medium -> high) or escalate T2_builder -> T3_architect.\n' \
       "$count" "$MAX_RETRIES" "$VERIFY_CMD" >&2

@@ -285,6 +285,15 @@ AXN routes work across **4 cost tiers** for Claude Code, Codex CLI, Cursor, Gemi
 
 - **Effort-Before-Tier:** Step up reasoning effort (`low -> medium -> high`) before upgrading to a higher tier.
 - **2-Strike Escalation Gate:** Start implementation at **T2 Builder**; escalate to **T3 Architect** only after `auto-verify-loop` or `stop-gate-verifier` fails twice on the same root cause.
+- **Smart Learning Orchestrator (`scripts/learn-router.py`):** Tracks per-tier EMA scores and sample counts per `(task_type, stack)` bucket with cold-start acceleration (`alpha=0.4` for `<3` tier samples, `0.2` thereafter), cross-platform file locking, and bounded ledger rotation (`10,000` lines). Query recommendations or inspect learned weights:
+  ```bash
+  # Query cheapest proven tier (tier_samples >= 3 and score >= 0.85, else null -> config/cost-tiers.yaml)
+  python3 scripts/learn-router.py --recommend --task-type feature_impl --stack typescript
+
+  # Inspect all learned buckets or replay routing-ledger.jsonl
+  python3 scripts/learn-router.py --summary
+  python3 scripts/learn-router.py --recompute
+  ```
 
 ---
 

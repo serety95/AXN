@@ -96,8 +96,13 @@ else
   exit 0
 fi
 
-# Extract AXN_TELEMETRY JSON and attach deterministic passed ground truth
-TELEMETRY_JSON="$(printf '%s' "$PAYLOAD" | AXN_STRIKE_DIR="$STRIKE_DIR" "$PY_BIN" -c '
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+REPO_KEY="$(printf '%s' "$REPO_ROOT" | cksum | awk '{print $1"-"$2}')"
+REPO_STRIKE_DIR="${STRIKE_DIR}/${REPO_KEY}"
+
+# Extract AXN_TELEMETRY JSON (prioritizing direct message fields over transcript_path,
+# rejecting <...> / | placeholders) and attach deterministic passed/retries ground truth.
+TELEMETRY_JSON="$(printf '%s' "$PAYLOAD" | AXN_REPO_STRIKE_DIR="$REPO_STRIKE_DIR" "$PY_BIN" -c '
 import json, os, re, sys
 
 try:
@@ -107,65 +112,113 @@ except Exception:
 if not isinstance(payload, dict):
     sys.exit(0)
 
-candidates = []
+def parse_valid_telemetry(text):
+    if not text:
+        return None
+    matches = re.findall(r"AXN_TELEMETRY:\s*(\{[^\r\n]*\})", text)
+    for raw in reversed(matches):
+        try:
+            obj = json.loads(raw)
+        except Exception:
+            continue
+        if not isinstance(obj, dict):
+            continue
+        # Reject documentation/template placeholders like <explore|...> or T2|T3
+        has_placeholder = False
+        for v in obj.values():
+            if isinstance(v, str) and ("<" in v or ">" in v or "|" in v):
+                has_placeholder = True
+                break
+        if has_placeholder:
+            continue
+        if not isinstance(obj.get("task_type"), str) or not obj.get("task_type"):
+            continue
+        return obj
+    return None
+
+telemetry = None
+direct_texts = []
 for k in ("last_assistant_message", "assistant_message", "response", "message", "output"):
     v = payload.get(k)
     if isinstance(v, str) and v:
-        candidates.append(v)
+        direct_texts.append(v)
 
-tp = payload.get("transcript_path")
-if isinstance(tp, str) and tp and os.path.isfile(tp) and not os.path.islink(tp):
-    try:
-        with open(tp, "rb") as f:
-            f.seek(0, os.SEEK_END)
-            size = f.tell()
-            f.seek(max(0, size - 65536))
-            candidates.append(f.read().decode("utf-8", errors="replace"))
-    except Exception:
-        pass
+telemetry = parse_valid_telemetry("\n".join(direct_texts))
 
-text = "\n".join(candidates)
-matches = re.findall(r"AXN_TELEMETRY:\s*(\{[^\r\n]*\})", text)
-if not matches:
-    sys.exit(0)
-
-try:
-    telemetry = json.loads(matches[-1])
-except Exception:
-    sys.exit(0)
-if not isinstance(telemetry, dict):
-    sys.exit(0)
-
-# Deterministic ground truth: check env override or active strike counters
-passed = True
-env_gate = os.environ.get("AXN_STOP_GATE_PASSED", "").strip().lower()
-if env_gate == "false":
-    passed = False
-elif env_gate != "true":
-    strike_dir = os.environ.get("AXN_STRIKE_DIR", "")
-    if strike_dir and os.path.isdir(strike_dir) and not os.path.islink(strike_dir):
+if telemetry is None:
+    tp = payload.get("transcript_path")
+    if isinstance(tp, str) and tp and os.path.isfile(tp) and not os.path.islink(tp):
         try:
-            for name in os.listdir(strike_dir):
-                if not name.endswith(".count"):
-                    continue
-                fp = os.path.join(strike_dir, name)
-                if os.path.islink(fp) or not os.path.isfile(fp):
-                    continue
-                raw = open(fp, "r", encoding="utf-8", errors="replace").read().strip()
-                if raw.isdigit() and int(raw) > 0:
+            with open(tp, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                size = f.tell()
+                f.seek(max(0, size - 65536))
+                telemetry = parse_valid_telemetry(f.read().decode("utf-8", errors="replace"))
+        except Exception:
+            telemetry = None
+
+if telemetry is None:
+    sys.exit(0)
+
+# Deterministic ground truth from repo-scoped turn-state.json + active .count files
+passed = True
+max_strikes_seen = 0
+repo_strike_dir = os.environ.get("AXN_REPO_STRIKE_DIR", "")
+turn_state_file = os.path.join(repo_strike_dir, "turn-state.json") if repo_strike_dir else ""
+
+if repo_strike_dir and os.path.isdir(repo_strike_dir) and not os.path.islink(repo_strike_dir):
+    if turn_state_file and os.path.isfile(turn_state_file) and not os.path.islink(turn_state_file):
+        try:
+            ts = json.load(open(turn_state_file, "r", encoding="utf-8"))
+            if isinstance(ts, dict):
+                if isinstance(ts.get("max_strikes_seen"), int):
+                    max_strikes_seen = max(0, ts["max_strikes_seen"])
+                if ts.get("stop_gate_passed") is False:
                     passed = False
-                    break
+        except Exception:
+            pass
+        # Consume & reset turn-state.json for next turn
+        try:
+            os.unlink(turn_state_file)
         except Exception:
             pass
 
+    try:
+        for name in os.listdir(repo_strike_dir):
+            if not name.endswith(".count"):
+                continue
+            fp = os.path.join(repo_strike_dir, name)
+            if os.path.islink(fp) or not os.path.isfile(fp):
+                continue
+            raw = open(fp, "r", encoding="utf-8", errors="replace").read().strip()
+            if raw.isdigit() and int(raw) > 0:
+                passed = False
+                max_strikes_seen = max(max_strikes_seen, int(raw))
+    except Exception:
+        pass
+
+env_gate = os.environ.get("AXN_STOP_GATE_PASSED", "").strip().lower()
+if env_gate == "false":
+    passed = False
+elif env_gate == "true":
+    passed = True
+
+try:
+    llm_retries = int(telemetry.get("retries") or 0)
+except Exception:
+    llm_retries = 0
+
 telemetry["passed"] = passed
+telemetry["retries"] = max(llm_retries, max_strikes_seen)
+if "escalated_effort" not in telemetry:
+    telemetry["escalated_effort"] = False
+
 print(json.dumps(telemetry, separators=(",", ":")))
 ' 2>/dev/null || true)"
 
 [ -z "$TELEMETRY_JSON" ] && exit 0
 
 # Locate learn-router.py safely (reject symlinks)
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 LEARN_ROUTER=""
 for candidate in "${REPO_ROOT}/scripts/learn-router.py" "${AXN_ROOT:-$HOME/.axn}/scripts/learn-router.py"; do
   if [ -f "$candidate" ] && [ ! -L "$candidate" ]; then

@@ -23,11 +23,12 @@
     {
       "id": "core-hooks",
       "kind": "hook",
-      "description": "Deterministic lifecycle guardrails (PreToolUse blast-radius-guard, config-protection, token-budget-guard; PostToolUse auto-verify-loop; Stop stop-gate-verifier, orchestrator-feedback).",
+      "description": "Deterministic lifecycle guardrails (PreToolUse blast-radius-guard, config-protection, token-budget-guard; PostToolUse auto-verify-loop; Stop stop-gate-verifier, orchestrator-feedback + learn-router.py).",
       "paths": [
         "hooks/pre-tool-use/",
         "hooks/post-tool-use/",
-        "hooks/stop/"
+        "hooks/stop/",
+        "scripts/learn-router.py"
       ],
       "targets": {
         "claude": "~/.claude/hooks",
@@ -74,7 +75,7 @@
     {
       "id": "core-agents",
       "kind": "agent",
-      "description": "Core sub-agent personas (architect, reviewer, software-architect, business-analyst).",
+      "description": "Core sub-agent personas (axn-orchestrator, architect, reviewer, software-architect, business-analyst).",
       "paths": [
         "agents/"
       ],
