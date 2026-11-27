@@ -111,11 +111,42 @@ if [ -z "$VERIFY_CMD" ]; then
   exit 0
 fi
 
+STRIKE_DIR="${AXN_STRIKE_DIR:-${TMPDIR:-/tmp}/axn-strikes}"
+MAX_RETRIES="${AXN_MAX_RETRIES_BEFORE_ESCALATION:-2}"
+STRIKE_KEY="$(printf '%s' "stop-gate:${REPO_ROOT}:${VERIFY_CMD}" | cksum | awk '{print $1"-"$2}')"
+STRIKE_FILE="${STRIKE_DIR}/${STRIKE_KEY}.count"
+
+clear_strikes() {
+  [ -f "$STRIKE_FILE" ] && rm -f "$STRIKE_FILE" 2>/dev/null || true
+}
+
+record_strike() {
+  mkdir -p "$STRIKE_DIR" 2>/dev/null || return 0
+  [ -L "$STRIKE_FILE" ] && rm -f "$STRIKE_FILE" 2>/dev/null || true
+  local count=0
+  if [ -f "$STRIKE_FILE" ]; then
+    local raw
+    raw="$(cat "$STRIKE_FILE" 2>/dev/null || echo "0")"
+    case "$raw" in
+      ''|*[!0-9]*) count=0 ;;
+      *) count="$raw" ;;
+    esac
+  fi
+  count=$((count + 1))
+  printf '%s' "$count" > "$STRIKE_FILE" 2>/dev/null || true
+  if [ "$count" -ge "$MAX_RETRIES" ]; then
+    printf '[AXN cost-routing] 2-STRIKE ESCALATION HINT (strike %s/%s on %s): Per config/cost-tiers.yaml, bump reasoning effort first (low -> medium -> high) or escalate T2_builder -> T3_architect.\n' \
+      "$count" "$MAX_RETRIES" "$VERIFY_CMD" >&2
+  fi
+}
+
 # Run inside repo root
 OUT=""
 if ! OUT="$(cd "$REPO_ROOT" && bash -c "$VERIFY_CMD" 2>&1)"; then
   printf '[AXN stop-gate-verifier] Verification failed (%s):\n%s\n' "$VERIFY_CMD" "$OUT" >&2
+  record_strike
   exit 2
 fi
 
+clear_strikes
 exit 0

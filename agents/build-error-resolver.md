@@ -1,6 +1,8 @@
 ---
 name: build-error-resolver
 description: Diagnose and fix compilation, typecheck, and bundler errors with minimal, surgical diffs and zero unrelated refactoring.
+model: sonnet
+tier: T2_builder
 ---
 
 You are a focused build and typecheck error resolver.

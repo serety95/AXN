@@ -128,6 +128,8 @@ if os.path.isdir(skills_dir):
                 errors.append(f"skills/{entry}/SKILL.md: 'description:' must be a non-empty inline scalar")
 
 agents_dir = os.path.join(root, "agents")
+valid_agent_tiers = {"T0_local", "T1_scout", "T2_builder", "T3_architect"}
+valid_agent_models = {"haiku", "sonnet", "opus", "inherit"}
 if os.path.isdir(agents_dir):
     for entry in sorted(os.listdir(agents_dir)):
         if not entry.endswith(".md"):
@@ -144,6 +146,12 @@ if os.path.isdir(agents_dir):
             desc = fm.get("description", "").strip("'\"")
             if not desc or desc in ("|", "|-", ">", ">-"):
                 errors.append(f"agents/{entry}: 'description:' must be a non-empty inline scalar")
+            tier = fm.get("tier", "").strip("'\"")
+            model = fm.get("model", "").strip("'\"")
+            if tier not in valid_agent_tiers:
+                errors.append(f"agents/{entry}: 'tier:' must be one of {sorted(valid_agent_tiers)} (got '{tier}')")
+            if model not in valid_agent_models:
+                errors.append(f"agents/{entry}: 'model:' must be one of {sorted(valid_agent_models)} (got '{model}')")
 
 # B. Personal path & Unicode Trojan Source & secret checks
 personal_re = re.compile(r'(?:/Users/|C:\\\\?Users\\\\?|C:/Users/)([A-Za-z0-9._-]+)')
@@ -151,7 +159,7 @@ allowed_users = {"your-username", "username", "user", "name", "example"}
 secret_re = re.compile(r'(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|BEGIN (?:RSA|OPENSSH|EC) PRIVATE KEY)')
 unsafe_unicode = re.compile(r'[\u200b-\u200f\u202a-\u202e\u2066-\u2069]')
 
-scan_roots = ["skills", "agents", "commands", "rules", "contexts", "schemas", "hooks", "templates", "manifests", "docs", "instincts", "scripts", "tools"]
+scan_roots = ["skills", "agents", "commands", "rules", "contexts", "schemas", "config", "hooks", "templates", "manifests", "docs", "instincts", "scripts", "tools"]
 scan_files = [os.path.join(root, f) for f in ("README.md", "TROUBLESHOOTING.md", "SECURITY.md") if os.path.isfile(os.path.join(root, f))]
 for sr in scan_roots:
     p = os.path.join(root, sr)
@@ -191,6 +199,28 @@ for jdir in ("manifests", "schemas", "tools"):
                             json.load(fh)
                     except Exception as exc:
                         errors.append(f"{rel}: invalid JSON ({exc})")
+
+# D. Cost-tiers YAML validation
+cost_tiers_path = os.path.join(root, "config", "cost-tiers.yaml")
+if not os.path.isfile(cost_tiers_path):
+    errors.append("config/cost-tiers.yaml: missing required cost routing config")
+else:
+    with open(cost_tiers_path, "r", encoding="utf-8") as fh:
+        ct_text = fh.read()
+    try:
+        import yaml
+        ct_data = yaml.safe_load(ct_text)
+        for k in ("version", "default_execution_tier", "default_subagent_tier", "tiers", "escalation"):
+            if not isinstance(ct_data, dict) or k not in ct_data:
+                errors.append(f"config/cost-tiers.yaml: missing key '{k}'")
+        tiers_obj = ct_data.get("tiers", {}) if isinstance(ct_data, dict) else {}
+        for tk in ("T0_local", "T1_scout", "T2_builder", "T3_architect"):
+            if tk not in tiers_obj:
+                errors.append(f"config/cost-tiers.yaml: missing tier '{tk}'")
+    except ImportError:
+        for req in ("default_execution_tier:", "default_subagent_tier:", "T0_local:", "T1_scout:", "T2_builder:", "T3_architect:", "escalation:"):
+            if req not in ct_text:
+                errors.append(f"config/cost-tiers.yaml: missing '{req}'")
 
 if errors:
     for e in errors:

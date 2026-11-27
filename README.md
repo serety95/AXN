@@ -102,7 +102,8 @@ AXN ships with **5 battle-tested modules** (3 deterministic lifecycle hooks + 2 
 
 | Module | Type | Trigger / Invocation | Core Problem Solved |
 | :--- | :--- | :--- | :--- |
-| **`blast-radius-guard`** | `PreToolUse` Hook | Before `Bash`, `Write`, or `Edit` | Hard-blocks destructive shell commands (`rm -rf /`, `--force` push, `DROP TABLE`, `chmod 777`) and `.env` leaks before execution. |
+| **`blast-radius-guard`** | `PreToolUse` Hook | Before `Bash`, `Write`, `Edit`, `Read` | Hard-blocks destructive shell commands (`rm -rf /`, `--force` push, `DROP TABLE`, `chmod 777`) and `.env` leaks before execution. |
+| **`token-budget-guard`** | `PreToolUse` Hook | Before `Read` or `Bash` | Blocks unbounded reads of lockfiles, minified/vendor noise, and massive files while allowing bounded `offset`/`limit` slices. |
 | **`auto-verify-loop`** | `PostToolUse` Hook | After `Edit` or `Write` | Runs scoped `tsc`, `biome`, `ruff`, or `cargo check` on modified files and feeds errors back so the agent self-heals in the same turn. |
 | **`stop-gate-verifier`** | `Stop` Hook | When agent attempts to finish | Checks `git status` and runs your fast test suite (`.ai/verify.cmd`); blocks completion until tests pass. |
 | **`repo-map-compressor`** | Skill | *"Map this repo"* / onboarding | Extracts exported symbols, routes, and boundaries into a `<1,500`-token `.ai/MAP.md` index to slash codebase exploration burn. |
@@ -171,7 +172,8 @@ AXN maps a single unified repository layout into the native paths expected by ea
 
 ```text
 AXN/
-├── agents/                     # Sub-agent personas (70+ specialized + core agents)
+├── agents/                     # Sub-agent personas (pinned to T0-T3 cost tiers)
+├── config/                     # Multi-provider 4-tier cost routing (cost-tiers.yaml)
 ├── skills/                     # Progressive-disclosure skills (<500 lines in SKILL.md, 350+ modules)
 ├── commands/                   # Slash commands (99 workflows for TDD, plan, review, verify)
 ├── rules/                      # Always-loaded common & language-specific rules (122 rules)
@@ -179,7 +181,8 @@ AXN/
 ├── hooks/                      # Deterministic guardrails + ECC lifecycle hooks
 │   ├── pre-tool-use/
 │   │   ├── blast-radius-guard.sh
-│   │   └── config-protection.sh
+│   │   ├── config-protection.sh
+│   │   └── token-budget-guard.sh
 │   ├── post-tool-use/
 │   │   └── auto-verify-loop.sh
 │   └── stop/
@@ -214,6 +217,15 @@ AXN deliberately **does not symlink** `~/.claude/settings.json` or `~/.codex/con
           {
             "type": "command",
             "command": "~/.claude/hooks/pre-tool-use/blast-radius-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/pre-tool-use/token-budget-guard.sh"
           }
         ]
       }
@@ -257,6 +269,20 @@ pytest -q
 # Rust
 cargo test --quiet
 ```
+
+### 4. 4-Tier Multi-Provider Cost Routing (`config/cost-tiers.yaml`)
+
+AXN routes work across **4 cost tiers** for Claude Code, Codex CLI, Cursor, Gemini CLI, OpenCode, and Local `$0` models (MLX / LM Studio `Qwen3.5-9B`, Ollama):
+
+| Tier | Claude Code | Codex CLI | Cursor | Gemini CLI | OpenCode | Local ($0) | Primary Tasks |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **T0 Local** | — | — | — | — | — | MLX / LM Studio `Qwen3.5-9B`, Ollama | `commit_msg`, `docstring`, `log_summary`, `simple_transform` |
+| **T1 Scout** | `haiku` (`claude-haiku-5-5`) | `gpt-6-luna` | `cost` / `Composer 2.5` | `flash-lite` / `flash` | `fast` | — | `explore`, `grep`, `repo_map`, `lint_fix`, `boilerplate` |
+| **T2 Builder** | `sonnet` (`claude-sonnet-5-5`) | `gpt-6-sol` | `balance` / `sonnet` | `pro` / `medium` | `standard` | — | `feature_impl`, `unit_tests`, `refactor`, `api_endpoint` |
+| **T3 Architect** | `opus` (`claude-opus-5-5` / `fable`) | `gpt-6-astra` | `intelligence` / `opus` / `Grok 4.7` | `pro` / `deep` | `frontier` | — | `architecture_plan`, `security_audit`, `race_condition_debug` |
+
+- **Effort-Before-Tier:** Step up reasoning effort (`low -> medium -> high`) before upgrading to a higher tier.
+- **2-Strike Escalation Gate:** Start implementation at **T2 Builder**; escalate to **T3 Architect** only after `auto-verify-loop` or `stop-gate-verifier` fails twice on the same root cause.
 
 ---
 

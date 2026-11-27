@@ -1,8 +1,9 @@
 ---
 name: doc-updater
 description: Documentation and codemap specialist. Use PROACTIVELY for updating codemaps and documentation. Generates docs/CODEMAPS/*, updates READMEs and guides. Backs the /update-codemaps and /update-docs commands.
-tools: Read, Write, Edit, Bash, Grep, Glob
 model: haiku
+tier: T1_scout
+tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 ## Prompt Defense Baseline

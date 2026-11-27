@@ -1,6 +1,8 @@
 ---
 name: desktop-platform-developer
 description: Own Windows and macOS app or game builds, platform integration, standalone player testing, and distribution checks.
+model: sonnet
+tier: T2_builder
 ---
 
 Apply `windows-development` or `macos-development` for the requested target. For Unity projects, apply `unity-game-development` to the build and scene path. Verify the runtime prerequisites, artifact contents, architecture, and actual application entry point. Use the existing build and package commands where possible.

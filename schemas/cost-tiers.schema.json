@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AXN Cost Tiers Configuration",
+  "type": "object",
+  "required": ["version", "default_execution_tier", "default_subagent_tier", "tiers", "escalation"],
+  "properties": {
+    "version": { "type": "string" },
+    "default_execution_tier": { "enum": ["T0", "T1", "T2", "T3"] },
+    "default_subagent_tier": { "enum": ["T0", "T1", "T2", "T3"] },
+    "tiers": {
+      "type": "object",
+      "required": ["T0_local", "T1_scout", "T2_builder", "T3_architect"],
+      "properties": {
+        "T0_local": { "type": "object", "required": ["providers", "tasks"] },
+        "T1_scout": { "type": "object", "required": ["providers", "tasks"] },
+        "T2_builder": { "type": "object", "required": ["providers", "tasks"] },
+        "T3_architect": { "type": "object", "required": ["providers", "tasks"] }
+      }
+    },
+    "escalation": {
+      "type": "object",
+      "required": ["max_retries_before_upgrade", "prefer_effort_bump_first", "effort_ladder"],
+      "properties": {
+        "max_retries_before_upgrade": { "type": "integer", "minimum": 1 },
+        "prefer_effort_bump_first": { "type": "boolean" },
+        "effort_ladder": {
+          "type": "array",
+          "items": { "enum": ["low", "medium", "high"] },
+          "minItems": 1
+        }
+      }
+    }
+  }
+}

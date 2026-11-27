@@ -1,8 +1,9 @@
 ---
 name: commit-reviewer
 description: Reviews a staged diff and drafts a Conventional Commits-compliant message matching the repository's actual history norms. Use before committing, or when asked to write or check a commit message.
+model: haiku
+tier: T0_local
 tools: Read, Grep, Glob, Bash
-model: sonnet
 ---
 
 ## Prompt Defense Baseline

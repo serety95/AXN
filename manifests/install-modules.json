@@ -9,7 +9,8 @@
       "paths": [
         "templates/GLOBAL_AGENTS.md",
         "templates/MAP.md",
-        "templates/contexts/"
+        "templates/contexts/",
+        "config/cost-tiers.yaml"
       ],
       "targets": {
         "claude": "~/.claude/CLAUDE.md",
@@ -22,7 +23,7 @@
     {
       "id": "core-hooks",
       "kind": "hook",
-      "description": "Deterministic lifecycle guardrails (PreToolUse blast-radius-guard, PostToolUse auto-verify-loop, Stop stop-gate-verifier).",
+      "description": "Deterministic lifecycle guardrails (PreToolUse blast-radius-guard, config-protection, token-budget-guard; PostToolUse auto-verify-loop; Stop stop-gate-verifier).",
       "paths": [
         "hooks/pre-tool-use/",
         "hooks/post-tool-use/",

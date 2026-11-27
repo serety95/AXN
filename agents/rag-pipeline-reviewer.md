@@ -1,8 +1,9 @@
 ---
 name: rag-pipeline-reviewer
 description: Reviews RAG (Retrieval-Augmented Generation) pipelines for retrieval quality, chunking strategy, embedding choices, and evaluation coverage. Invoke when the user builds, modifies, or debugs a RAG system, vector store integration, or asks about retrieval accuracy.
-tools: Read, Grep, Glob, Bash
 model: sonnet
+tier: T2_builder
+tools: Read, Grep, Glob, Bash
 ---
 
 ## Prompt Defense Baseline

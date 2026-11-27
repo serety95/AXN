@@ -4,8 +4,9 @@ Deterministic, zero-token shell guardrails organized by agent lifecycle event.
 
 ## Directory Layout
 
-- `pre-tool-use/blast-radius-guard.sh` — `PreToolUse` (`Bash|Write|Edit`): hard-blocks destructive shell commands, `--no-verify`, path traversal, secret file reads/writes, and hardcoded secret leaks.
-- `pre-tool-use/config-protection.sh` — `PreToolUse` (`Write|Edit`): blocks modifications to *existing* linter, formatter, and ignore configs so agents fix code rather than weakening checks (allows first-time creation; override with `AXN_ALLOW_CONFIG_EDIT=1`).
+- `pre-tool-use/blast-radius-guard.sh` — `PreToolUse` (`Bash|Write|Edit|Read`): hard-blocks destructive shell commands, `--no-verify`, path traversal, secret file reads/writes, and hardcoded secret leaks.
+- `pre-tool-use/config-protection.sh` — `PreToolUse` (`Write|Edit`): blocks modifications to *existing* linter, formatter, ignore, and `.ai/verify.cmd` configs so agents fix code rather than weakening checks (allows first-time creation; override with `AXN_ALLOW_CONFIG_EDIT=1`).
+- `pre-tool-use/token-budget-guard.sh` — `PreToolUse` (`Read|View|Bash`): blocks unbounded reads/`cat` of lockfiles, minified/vendor/build noise, and massive files (`>600` lines or `>100 KiB`), while allowing bounded `offset`/`limit` or `StartLine`/`EndLine` slices (`AXN_TOKEN_GUARD_MODE=warn` to warn instead of block).
 - `post-tool-use/auto-verify-loop.sh` — `PostToolUse` (`Edit|Write`): runs scoped syntax/lint/typecheck (`biome`, `tsc`, `ruff`, `cargo check`, `go vet`, `bash -n`/`shellcheck`) on the modified file and feeds errors back via `stderr` + exit `2`.
 - `stop/stop-gate-verifier.sh` — `Stop`: runs repo-root `.ai/verify.cmd` (when present and inside repo boundaries) before allowing the agent to finish; exits `2` on failure and respects `stop_hook_active` to prevent infinite loops.
 - `pre-submit-prompt/route-skills.mjs` — `beforeSubmitPrompt` (Cursor / prompt-router): fail-open keyword router injecting relevant AXN skill/agent suggestions.

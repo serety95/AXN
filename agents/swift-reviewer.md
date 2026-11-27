@@ -1,8 +1,9 @@
 ---
 name: swift-reviewer
 description: Expert Swift code reviewer specializing in protocol-oriented design, value semantics, ARC memory management, Swift Concurrency, and idiomatic patterns. Use for all Swift code changes. MUST BE USED for Swift projects.
-tools: Read, Grep, Glob, Bash
 model: sonnet
+tier: T2_builder
+tools: Read, Grep, Glob, Bash
 ---
 
 ## Prompt Defense Baseline

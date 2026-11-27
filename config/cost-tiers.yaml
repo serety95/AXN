@@ -1,0 +1,108 @@
+# AXN 4-Tier Multi-Provider Cost Routing Configuration
+# Providers: Claude Code, Codex CLI, Cursor, Gemini CLI, OpenCode, Local ($0)
+
+version: "1.0.0"
+default_execution_tier: T2
+default_subagent_tier: T1
+
+tiers:
+  T0_local:
+    label: "T0 Local ($0)"
+    cost_class: free
+    providers:
+      local_mlx:
+        runtime: "MLX / LM Studio"
+        model: "Qwen3.5-9B"
+      ollama:
+        runtime: "Ollama"
+        model: "qwen3.5:9b"
+      byok_proxy:
+        runtime: "OpenAI-compatible local proxy"
+        base_url: "http://localhost:1234/v1"
+    tasks:
+      - commit_msg
+      - docstring
+      - log_summary
+      - simple_transform
+
+  T1_scout:
+    label: "T1 Scout (Fast / Cheap)"
+    cost_class: low
+    providers:
+      claude:
+        alias: "haiku"
+        model: "claude-haiku-5-5"
+      codex:
+        model: "gpt-6-luna"
+      cursor:
+        tier: "cost"
+        model: "Composer 2.5"
+      gemini:
+        tier: "flash-lite"
+        model: "flash"
+      opencode:
+        tier: "fast"
+        model: "fast"
+    tasks:
+      - explore
+      - grep
+      - repo_map
+      - lint_fix
+      - boilerplate
+
+  T2_builder:
+    label: "T2 Builder (Balanced Default)"
+    cost_class: medium
+    providers:
+      claude:
+        alias: "sonnet"
+        model: "claude-sonnet-5-5"
+      codex:
+        model: "gpt-6-sol"
+      cursor:
+        tier: "balance"
+        model: "sonnet"
+      gemini:
+        tier: "pro"
+        model: "medium"
+      opencode:
+        tier: "standard"
+        model: "standard"
+    tasks:
+      - feature_impl
+      - unit_tests
+      - refactor
+      - api_endpoint
+
+  T3_architect:
+    label: "T3 Architect (Frontier / High-Reasoning)"
+    cost_class: high
+    providers:
+      claude:
+        alias: "opus"
+        model: "claude-opus-5-5"
+        alt_model: "fable"
+      codex:
+        model: "gpt-6-astra"
+      cursor:
+        tier: "intelligence"
+        model: "opus"
+        alt_model: "Grok 4.7"
+      gemini:
+        tier: "pro"
+        model: "deep"
+      opencode:
+        tier: "frontier"
+        model: "frontier"
+    tasks:
+      - architecture_plan
+      - security_audit
+      - race_condition_debug
+
+escalation:
+  max_retries_before_upgrade: 2
+  prefer_effort_bump_first: true
+  effort_ladder:
+    - low
+    - medium
+    - high

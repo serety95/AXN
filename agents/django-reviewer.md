@@ -1,8 +1,9 @@
 ---
 name: django-reviewer
 description: Expert Django code reviewer specializing in ORM correctness, DRF patterns, migration safety, security misconfigurations, and production-grade Django practices. Use for all Django code changes. MUST BE USED for Django projects.
-tools: Read, Grep, Glob, Bash
 model: sonnet
+tier: T2_builder
+tools: Read, Grep, Glob, Bash
 ---
 
 ## Prompt Defense Baseline

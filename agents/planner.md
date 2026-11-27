@@ -1,8 +1,9 @@
 ---
 name: planner
 description: Expert planning specialist for complex features and refactoring. Use PROACTIVELY when users request feature implementation, architectural changes, or complex refactoring. Automatically activated for planning tasks.
-tools: Read, Grep, Glob
 model: opus
+tier: T3_architect
+tools: Read, Grep, Glob
 ---
 
 ## Prompt Defense Baseline

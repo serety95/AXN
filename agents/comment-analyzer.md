@@ -2,6 +2,7 @@
 name: comment-analyzer
 description: Analyze code comments for accuracy, completeness, maintainability, and comment rot risk.
 model: haiku
+tier: T1_scout
 tools: Read, Grep, Glob
 ---
 

@@ -1,8 +1,9 @@
 ---
 name: network-config-reviewer
 description: Reviews router and switch configurations for security, correctness, stale references, risky change-window commands, and missing operational guardrails.
-tools: Read, Grep
 model: sonnet
+tier: T2_builder
+tools: Read, Grep
 ---
 
 ## Prompt Defense Baseline

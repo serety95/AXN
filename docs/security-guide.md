@@ -20,6 +20,7 @@ AXN hooks run deterministically outside the LLM context window:
 2. **Path Containment:** Reject `..`, command substitution (`$()`, backticks), and Windows-unsafe device names (`CON`, `NUL`, `COM1`, trailing dots/spaces, NTFS ADS `:`) before touching paths.
 3. **Config Protection:** Prevent agents from weakening `.eslintrc*`, `ruff.toml`, `biome.json*`, or `.ai/verify.cmd` to make failing checks pass.
 4. **No `--no-verify`:** Hard-block `--no-verify` in `Bash` tool calls so git hooks and commit gates cannot be bypassed.
+5. **Token-Budget Guard (`token-budget-guard.sh`):** Fail-closed `PreToolUse` (`Read|Bash`) guard blocking unbounded reads of lockfiles, minified/vendor noise, and massive files while allowing bounded `offset`/`limit` slices.
 
 ---
 

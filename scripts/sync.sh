@@ -233,6 +233,7 @@ sync_claude() {
   echo "=== Claude Code ($base) ==="
   if [[ $UNINSTALL -eq 1 ]]; then
     unlink_item "$base/CLAUDE.md"
+    unlink_item "$base/cost-tiers.yaml"
     unlink_item "$base/hooks"
     unlink_item "$base/commands"
     unlink_item "$base/rules"
@@ -241,6 +242,7 @@ sync_claude() {
     sync_runtime_agents "$base/agents" "md"
   else
     link_item "$AXN_ROOT/templates/GLOBAL_AGENTS.md" "$base/CLAUDE.md"
+    link_item "$AXN_ROOT/config/cost-tiers.yaml" "$base/cost-tiers.yaml"
     link_item "$AXN_ROOT/hooks" "$base/hooks"
     if [[ "$PROFILE" == "developer" || "$PROFILE" == "full" ]]; then
       link_item "$AXN_ROOT/commands" "$base/commands"
@@ -261,12 +263,14 @@ sync_cursor() {
   echo "=== Cursor ($base) ==="
   if [[ $UNINSTALL -eq 1 ]]; then
     unlink_item "$base/rules/global.mdc"
+    unlink_item "$base/cost-tiers.yaml"
     unlink_item "$base/hooks"
     unlink_item "$base/commands"
     sync_runtime_skills "$base/skills"
     sync_runtime_agents "$base/rules" "mdc"
   else
     link_item "$AXN_ROOT/templates/GLOBAL_AGENTS.md" "$base/rules/global.mdc"
+    link_item "$AXN_ROOT/config/cost-tiers.yaml" "$base/cost-tiers.yaml"
     link_item "$AXN_ROOT/hooks" "$base/hooks"
     if [[ "$PROFILE" == "developer" || "$PROFILE" == "full" ]]; then
       link_item "$AXN_ROOT/commands" "$base/commands"
@@ -281,15 +285,29 @@ sync_codex() {
   echo "=== Codex CLI ($base) ==="
   if [[ $UNINSTALL -eq 1 ]]; then
     unlink_item "$base/AGENTS.md"
+    unlink_item "$base/cost-tiers.yaml"
     sync_runtime_skills "$base/skills"
   else
     link_item "$AXN_ROOT/templates/GLOBAL_AGENTS.md" "$base/AGENTS.md"
+    link_item "$AXN_ROOT/config/cost-tiers.yaml" "$base/cost-tiers.yaml"
     sync_runtime_skills "$base/skills"
   fi
+}
+
+print_routing_hints() {
+  echo ""
+  echo "=== 4-Tier Multi-Provider Cost Routing Hints (optional shell setup) ==="
+  echo "  Claude Code : alias cc=\"claude --model opusplan\" && export CLAUDE_CODE_SUBAGENT_MODEL=\"haiku\""
+  echo "  Codex CLI   : T1=gpt-6-luna | T2=gpt-6-sol (default) | T3=gpt-6-astra"
+  echo "  Cursor      : T1=cost (Composer 2.5) | T2=balance (sonnet) | T3=intelligence (opus / Grok 4.7)"
+  echo "  Gemini CLI  : T1=flash-lite/flash | T2=pro/medium | T3=pro/deep"
+  echo "  OpenCode    : T1=fast | T2=standard | T3=frontier"
+  echo "  Local (\$0)  : MLX / LM Studio Qwen3.5-9B or Ollama (http://localhost:1234/v1)"
 }
 
 echo "AXN Root: $AXN_ROOT (profile=$PROFILE, dry_run=$DRY_RUN, uninstall=$UNINSTALL)"
 [[ $SYNC_CLAUDE -eq 1 ]] && sync_claude
 [[ $SYNC_CURSOR -eq 1 ]] && sync_cursor
 [[ $SYNC_CODEX -eq 1 ]] && sync_codex
+[[ $UNINSTALL -eq 0 ]] && print_routing_hints
 echo "Done."

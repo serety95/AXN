@@ -29,6 +29,25 @@ plan -> test -> implement -> review -> verify -> remember -> improve
 
 ---
 
+## 4-Tier Multi-Provider Cost Routing
+
+Default execution starts at **T2 Builder** and delegates read-only/search subagents at **T1 Scout** (see `config/cost-tiers.yaml`):
+
+| Tier | Claude Code | Codex CLI | Cursor | Gemini CLI | OpenCode | Local ($0) | Primary Tasks |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **T0 Local** | — | — | — | — | — | MLX / LM Studio `Qwen3.5-9B`, Ollama | `commit_msg`, `docstring`, `log_summary`, `simple_transform` |
+| **T1 Scout** | `haiku` (`claude-haiku-5-5`) | `gpt-6-luna` | `cost` / `Composer 2.5` | `flash-lite` / `flash` | `fast` | — | `explore`, `grep`, `repo_map`, `lint_fix`, `boilerplate` |
+| **T2 Builder** | `sonnet` (`claude-sonnet-5-5`) | `gpt-6-sol` | `balance` / `sonnet` | `pro` / `medium` | `standard` | — | `feature_impl`, `unit_tests`, `refactor`, `api_endpoint` |
+| **T3 Architect** | `opus` (`claude-opus-5-5` / `fable`) | `gpt-6-astra` | `intelligence` / `opus` / `Grok 4.7` | `pro` / `deep` | `frontier` | — | `architecture_plan`, `security_audit`, `race_condition_debug` |
+
+### Effort-Before-Tier & 2-Strike Escalation Gate
+
+1. **Effort-Before-Tier:** Before upgrading from `T2_builder` to `T3_architect`, step up reasoning effort along `low -> medium -> high` on the current tier.
+2. **2-Strike Escalation Gate:** Start implementation at **T2 Builder**. Escalate to **T3 Architect** only after `auto-verify-loop` or `stop-gate-verifier` fails **twice** (`max_retries_before_upgrade: 2`) on the same root cause.
+3. **Subagent Pinning:** Always pin read-only/search subagents to `T1_scout` (`haiku`) and reserve `T3_architect` (`opus`) for architecture, security audits, and complex concurrency bugs.
+
+---
+
 ## Git & PR Hygiene
 
 - Never use `--no-verify`, `--force` push to shared branches, or `git reset --hard` without explicit user confirmation.

@@ -1,8 +1,9 @@
 ---
 name: database-reviewer
 description: PostgreSQL database specialist for query optimization, schema design, security, and performance. Use PROACTIVELY when writing SQL, creating migrations, designing schemas, or troubleshooting database performance. Incorporates Supabase best practices.
-tools: Read, Grep, Glob, Bash
 model: sonnet
+tier: T2_builder
+tools: Read, Grep, Glob, Bash
 ---
 
 ## Prompt Defense Baseline

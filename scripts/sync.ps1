@@ -156,6 +156,7 @@ if ($Claude) {
     Write-Host "=== Claude Code ($base) ==="
     if ($Uninstall) {
         Unlink-Item (Join-Path $base 'CLAUDE.md')
+        Unlink-Item (Join-Path $base 'cost-tiers.yaml')
         Unlink-Item (Join-Path $base 'hooks')
         Unlink-Item (Join-Path $base 'commands')
         Unlink-Item (Join-Path $base 'rules')
@@ -164,6 +165,7 @@ if ($Claude) {
         Sync-Agents (Join-Path $base 'agents') 'md'
     } else {
         Link-Item (Join-Path $AxnRoot 'templates\GLOBAL_AGENTS.md') (Join-Path $base 'CLAUDE.md')
+        Link-Item (Join-Path $AxnRoot 'config\cost-tiers.yaml') (Join-Path $base 'cost-tiers.yaml')
         Link-Item (Join-Path $AxnRoot 'hooks') (Join-Path $base 'hooks')
         if ($Profile -in @('developer', 'full')) {
             Link-Item (Join-Path $AxnRoot 'commands') (Join-Path $base 'commands')
@@ -184,12 +186,14 @@ if ($Cursor) {
     Write-Host "=== Cursor ($base) ==="
     if ($Uninstall) {
         Unlink-Item (Join-Path $base 'rules\global.mdc')
+        Unlink-Item (Join-Path $base 'cost-tiers.yaml')
         Unlink-Item (Join-Path $base 'hooks')
         Unlink-Item (Join-Path $base 'commands')
         Sync-Skills (Join-Path $base 'skills')
         Sync-Agents (Join-Path $base 'rules') 'mdc'
     } else {
         Link-Item (Join-Path $AxnRoot 'templates\GLOBAL_AGENTS.md') (Join-Path $base 'rules\global.mdc')
+        Link-Item (Join-Path $AxnRoot 'config\cost-tiers.yaml') (Join-Path $base 'cost-tiers.yaml')
         Link-Item (Join-Path $AxnRoot 'hooks') (Join-Path $base 'hooks')
         if ($Profile -in @('developer', 'full')) {
             Link-Item (Join-Path $AxnRoot 'commands') (Join-Path $base 'commands')
@@ -204,11 +208,24 @@ if ($Codex) {
     Write-Host "=== Codex CLI ($base) ==="
     if ($Uninstall) {
         Unlink-Item (Join-Path $base 'AGENTS.md')
+        Unlink-Item (Join-Path $base 'cost-tiers.yaml')
         Sync-Skills (Join-Path $base 'skills')
     } else {
         Link-Item (Join-Path $AxnRoot 'templates\GLOBAL_AGENTS.md') (Join-Path $base 'AGENTS.md')
+        Link-Item (Join-Path $AxnRoot 'config\cost-tiers.yaml') (Join-Path $base 'cost-tiers.yaml')
         Sync-Skills (Join-Path $base 'skills')
     }
+}
+
+if (-not $Uninstall) {
+    Write-Host ""
+    Write-Host "=== 4-Tier Multi-Provider Cost Routing Hints (optional env/profile setup) ==="
+    Write-Host '  Claude Code : $env:CLAUDE_CODE_SUBAGENT_MODEL = "haiku" (and alias cc -> claude --model opusplan)'
+    Write-Host '  Codex CLI   : T1=gpt-6-luna | T2=gpt-6-sol (default) | T3=gpt-6-astra'
+    Write-Host '  Cursor      : T1=cost (Composer 2.5) | T2=balance (sonnet) | T3=intelligence (opus / Grok 4.7)'
+    Write-Host '  Gemini CLI  : T1=flash-lite/flash | T2=pro/medium | T3=pro/deep'
+    Write-Host '  OpenCode    : T1=fast | T2=standard | T3=frontier'
+    Write-Host '  Local ($0)  : MLX / LM Studio Qwen3.5-9B or Ollama (http://localhost:1234/v1)'
 }
 
 Write-Host 'Done.'

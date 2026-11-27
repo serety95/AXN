@@ -1,8 +1,9 @@
 ---
 name: gan-generator
 description: "GAN Harness — Generator agent. Implements features according to the spec, reads evaluator feedback, and iterates until quality threshold is met."
-tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
+tier: T2_builder
+tools: Read, Write, Edit, Bash, Grep, Glob
 color: green
 ---
 

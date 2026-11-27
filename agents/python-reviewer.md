@@ -1,8 +1,9 @@
 ---
 name: python-reviewer
 description: Expert Python code reviewer specializing in PEP 8 compliance, Pythonic idioms, type hints, security, and performance. Use for all Python code changes. MUST BE USED for Python projects.
-tools: Read, Grep, Glob, Bash
 model: sonnet
+tier: T2_builder
+tools: Read, Grep, Glob, Bash
 ---
 
 ## Prompt Defense Baseline

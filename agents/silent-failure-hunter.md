@@ -2,6 +2,7 @@
 name: silent-failure-hunter
 description: Review code for silent failures, swallowed errors, bad fallbacks, and missing error propagation.
 model: sonnet
+tier: T2_builder
 tools: Read, Grep, Glob, Bash
 ---
 
