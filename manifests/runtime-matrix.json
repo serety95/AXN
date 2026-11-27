@@ -1,0 +1,39 @@
+{
+  "version": "1.0.0",
+  "runtimes": {
+    "claude": {
+      "name": "Claude Code",
+      "homeDir": "~/.claude",
+      "mappings": {
+        "skills": { "source": "skills/<name>", "target": "~/.claude/skills/<name>", "type": "dir" },
+        "agents": { "source": "agents/<name>.md", "target": "~/.claude/agents/<name>.md", "type": "file" },
+        "commands": { "source": "commands", "target": "~/.claude/commands", "type": "dir" },
+        "rules": { "source": "rules", "target": "~/.claude/rules", "type": "dir" },
+        "contexts": { "source": "contexts", "target": "~/.claude/contexts", "type": "dir" },
+        "hooks": { "source": "hooks", "target": "~/.claude/hooks", "type": "dir" },
+        "globalAgents": { "source": "templates/GLOBAL_AGENTS.md", "target": "~/.claude/CLAUDE.md", "type": "file" }
+      },
+      "localOnly": ["~/.claude/settings.json"]
+    },
+    "cursor": {
+      "name": "Cursor",
+      "homeDir": "~/.cursor",
+      "mappings": {
+        "skills": { "source": "skills/<name>", "target": "~/.cursor/skills/<name>", "type": "dir" },
+        "agents": { "source": "agents/<name>.md", "target": "~/.cursor/rules/<name>.mdc", "type": "file" },
+        "hooks": { "source": "hooks", "target": "~/.cursor/hooks", "type": "dir" },
+        "globalAgents": { "source": "templates/GLOBAL_AGENTS.md", "target": "~/.cursor/rules/global.mdc", "type": "file" }
+      },
+      "localOnly": ["~/.cursor/mcp.json"]
+    },
+    "codex": {
+      "name": "Codex CLI",
+      "homeDir": "~/.codex",
+      "mappings": {
+        "skills": { "source": "skills/<name>", "target": "~/.codex/skills/<name>", "type": "dir" },
+        "globalAgents": { "source": "templates/GLOBAL_AGENTS.md", "target": "~/.codex/AGENTS.md", "type": "file" }
+      },
+      "localOnly": ["~/.codex/config.toml", "~/.codex/rules/default.rules"]
+    }
+  }
+}

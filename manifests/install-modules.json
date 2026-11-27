@@ -1,0 +1,156 @@
+{
+  "version": "1.0.0",
+  "description": "AXN installable module registry for selective multi-runtime syncing.",
+  "modules": [
+    {
+      "id": "core-templates",
+      "kind": "template",
+      "description": "Shared GLOBAL_AGENTS.md instruction baseline and project starter templates.",
+      "paths": [
+        "templates/GLOBAL_AGENTS.md",
+        "templates/MAP.md",
+        "templates/contexts/"
+      ],
+      "targets": {
+        "claude": "~/.claude/CLAUDE.md",
+        "cursor": "~/.cursor/rules/global.mdc",
+        "codex": "~/.codex/AGENTS.md"
+      },
+      "dependencies": [],
+      "defaultInstall": true
+    },
+    {
+      "id": "core-hooks",
+      "kind": "hook",
+      "description": "Deterministic lifecycle guardrails (PreToolUse blast-radius-guard, PostToolUse auto-verify-loop, Stop stop-gate-verifier).",
+      "paths": [
+        "hooks/pre-tool-use/",
+        "hooks/post-tool-use/",
+        "hooks/stop/"
+      ],
+      "targets": {
+        "claude": "~/.claude/hooks",
+        "cursor": "~/.cursor/hooks"
+      },
+      "dependencies": [],
+      "defaultInstall": true
+    },
+    {
+      "id": "core-skills",
+      "kind": "skill",
+      "description": "Core engineering workflow skills (repo-map-compressor, adversarial-diff-audit, roi-loop-orchestrator, software-architect).",
+      "paths": [
+        "skills/repo-map-compressor",
+        "skills/adversarial-diff-audit",
+        "skills/roi-loop-orchestrator",
+        "skills/software-architect"
+      ],
+      "targets": {
+        "claude": "~/.claude/skills",
+        "cursor": "~/.cursor/skills",
+        "codex": "~/.codex/skills"
+      },
+      "dependencies": [],
+      "defaultInstall": true
+    },
+    {
+      "id": "security-skills",
+      "kind": "skill",
+      "description": "Security-focused skills (repo-map-compressor, adversarial-diff-audit, agent-security-hardening).",
+      "paths": [
+        "skills/repo-map-compressor",
+        "skills/adversarial-diff-audit",
+        "skills/agent-security-hardening"
+      ],
+      "targets": {
+        "claude": "~/.claude/skills",
+        "cursor": "~/.cursor/skills",
+        "codex": "~/.codex/skills"
+      },
+      "dependencies": [],
+      "defaultInstall": true
+    },
+    {
+      "id": "core-agents",
+      "kind": "agent",
+      "description": "Core sub-agent personas (architect, reviewer, software-architect, business-analyst).",
+      "paths": [
+        "agents/"
+      ],
+      "targets": {
+        "claude": "~/.claude/agents",
+        "cursor": "~/.cursor/rules"
+      },
+      "dependencies": [],
+      "defaultInstall": true
+    },
+    {
+      "id": "all-skills",
+      "kind": "skill",
+      "description": "Full catalog of generalized AXN skills (design, UI, mobile, game, platform, testing).",
+      "paths": [
+        "skills/"
+      ],
+      "targets": {
+        "claude": "~/.claude/skills",
+        "cursor": "~/.cursor/skills",
+        "codex": "~/.codex/skills"
+      },
+      "dependencies": [
+        "core-skills"
+      ],
+      "defaultInstall": true
+    },
+    {
+      "id": "core-commands",
+      "kind": "command",
+      "description": "Slash commands for planning, TDD, review, verification, and workflow orchestration.",
+      "paths": [
+        "commands/"
+      ],
+      "targets": {
+        "claude": "~/.claude/commands",
+        "cursor": "~/.cursor/commands"
+      },
+      "dependencies": [],
+      "defaultInstall": true
+    },
+    {
+      "id": "core-rules",
+      "kind": "rule",
+      "description": "Always-loaded common and language-specific engineering rules.",
+      "paths": [
+        "rules/"
+      ],
+      "targets": {
+        "claude": "~/.claude/rules"
+      },
+      "dependencies": [],
+      "defaultInstall": true
+    },
+    {
+      "id": "core-contexts",
+      "kind": "context",
+      "description": "Mode-specific context profiles (dev, research, review).",
+      "paths": [
+        "contexts/"
+      ],
+      "targets": {
+        "claude": "~/.claude/contexts"
+      },
+      "dependencies": [],
+      "defaultInstall": true
+    },
+    {
+      "id": "tools-mcp",
+      "kind": "tool",
+      "description": "Pinned starter MCP server templates (never auto-overwrites machine-local configs).",
+      "paths": [
+        "tools/"
+      ],
+      "targets": {},
+      "dependencies": [],
+      "defaultInstall": false
+    }
+  ]
+}

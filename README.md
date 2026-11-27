@@ -152,6 +152,9 @@ AXN maps a single unified repository layout into the native paths expected by ea
 | :--- | :--- | :--- | :--- |
 | `skills/<name>/` | `~/.claude/skills/<name>` | `~/.cursor/skills/<name>` | `~/.codex/skills/<name>` |
 | `agents/<name>.md` | `~/.claude/agents/<name>.md` | `~/.cursor/rules/<name>.mdc` | *(loaded via `AGENTS.md`)* |
+| `commands/` | `~/.claude/commands` | `~/.cursor/commands` | *Roadmap* |
+| `rules/` | `~/.claude/rules` | *(`rules/*.mdc`)* | *Roadmap* |
+| `contexts/` | `~/.claude/contexts` | *Roadmap* | *Roadmap* |
 | `hooks/` | `~/.claude/hooks` | `~/.cursor/hooks` | *Roadmap* |
 | `templates/GLOBAL_AGENTS.md` | `~/.claude/CLAUDE.md` | `~/.cursor/rules/global.mdc` | `~/.codex/AGENTS.md` |
 
@@ -168,29 +171,27 @@ AXN maps a single unified repository layout into the native paths expected by ea
 
 ```text
 AXN/
-├── agents/                     # Sub-agent personas (architect, reviewer, security)
-│   ├── architect.md
-│   └── reviewer.md
-├── skills/                     # Progressive-disclosure skills (<500 lines in SKILL.md)
-│   ├── repo-map-compressor/
-│   │   ├── SKILL.md
-│   │   └── scripts/
-│   └── adversarial-diff-audit/
-│       └── SKILL.md
-├── hooks/                      # Deterministic guardrails organized by lifecycle event
+├── agents/                     # Sub-agent personas (70+ specialized + core agents)
+├── skills/                     # Progressive-disclosure skills (<500 lines in SKILL.md, 350+ modules)
+├── commands/                   # Slash commands (99 workflows for TDD, plan, review, verify)
+├── rules/                      # Always-loaded common & language-specific rules (122 rules)
+├── contexts/                   # Mode-specific context profiles (dev, research, review)
+├── hooks/                      # Deterministic guardrails + ECC lifecycle hooks
 │   ├── pre-tool-use/
-│   │   └── blast-radius-guard.sh
+│   │   ├── blast-radius-guard.sh
+│   │   └── config-protection.sh
 │   ├── post-tool-use/
 │   │   └── auto-verify-loop.sh
 │   └── stop/
 │       └── stop-gate-verifier.sh
 ├── instincts/                  # Persistent cross-session learnings & distilled patterns
-├── manifests/                  # Selective install profiles & runtime capability maps
+├── manifests/                  # Selective install profiles, context packs & runtime maps
+├── schemas/                    # JSON schemas for manifests, hooks, and skills
 ├── tools/                      # Lightweight stateless CLIs & pinned MCP client configs
-├── templates/                  # Shared GLOBAL_AGENTS.md and .ai/MAP.md templates
+├── templates/                  # Shared GLOBAL_AGENTS.md, MAP.md, contexts & project starters
 └── scripts/
-    ├── sync.sh                 # Idempotent multi-runtime symlink manager
-    └── validate.sh             # CI check: YAML frontmatter, permissions & shellcheck
+    ├── sync.sh                 # Idempotent multi-runtime symlink manager (+ sync.ps1)
+    └── validate.sh             # CI check: YAML frontmatter, permissions, paths, Unicode & JSON
 ```
 
 ---

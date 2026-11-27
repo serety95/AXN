@@ -1,0 +1,34 @@
+# OS & Editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Secrets & Machine-Local Configs (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+settings.local.json
+config.local.toml
+
+# AXN Sync Backups & Local State
+*.bak.*
+.axn-state.json
+.ai/MAP.local.md
+
+# Runtime / Build Artifacts
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/
+build/
+coverage/
+*.log

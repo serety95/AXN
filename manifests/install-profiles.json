@@ -1,0 +1,57 @@
+{
+  "version": "1.0.0",
+  "description": "AXN selective install profiles.",
+  "profiles": {
+    "minimal": {
+      "description": "Global agent instructions and deterministic safety hooks only.",
+      "modules": [
+        "core-templates",
+        "core-hooks"
+      ]
+    },
+    "core": {
+      "description": "Recommended baseline: templates, deterministic hooks, core skills, core agents, rules, and contexts.",
+      "modules": [
+        "core-templates",
+        "core-hooks",
+        "core-skills",
+        "core-agents",
+        "core-rules",
+        "core-contexts"
+      ]
+    },
+    "developer": {
+      "description": "Full daily engineering setup including all generalized skills, commands, rules, and contexts.",
+      "modules": [
+        "core-templates",
+        "core-hooks",
+        "core-agents",
+        "core-commands",
+        "core-rules",
+        "core-contexts",
+        "all-skills"
+      ]
+    },
+    "security": {
+      "description": "Hardened guardrail-focused profile with hooks, security/audit skills, rules, and templates.",
+      "modules": [
+        "core-templates",
+        "core-hooks",
+        "core-rules",
+        "security-skills"
+      ]
+    },
+    "full": {
+      "description": "Everything in AXN (templates, hooks, agents, commands, rules, contexts, and all skills).",
+      "modules": [
+        "core-templates",
+        "core-hooks",
+        "core-agents",
+        "core-commands",
+        "core-rules",
+        "core-contexts",
+        "all-skills"
+      ]
+    }
+  }
+}
