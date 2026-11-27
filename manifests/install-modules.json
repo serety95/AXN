@@ -23,7 +23,7 @@
     {
       "id": "core-hooks",
       "kind": "hook",
-      "description": "Deterministic lifecycle guardrails (PreToolUse blast-radius-guard, config-protection, token-budget-guard; PostToolUse auto-verify-loop; Stop stop-gate-verifier).",
+      "description": "Deterministic lifecycle guardrails (PreToolUse blast-radius-guard, config-protection, token-budget-guard; PostToolUse auto-verify-loop; Stop stop-gate-verifier, orchestrator-feedback).",
       "paths": [
         "hooks/pre-tool-use/",
         "hooks/post-tool-use/",

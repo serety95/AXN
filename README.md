@@ -186,13 +186,15 @@ AXN/
 │   ├── post-tool-use/
 │   │   └── auto-verify-loop.sh
 │   └── stop/
+│       ├── orchestrator-feedback.sh
 │       └── stop-gate-verifier.sh
-├── instincts/                  # Persistent cross-session learnings & distilled patterns
+├── instincts/                  # Persistent cross-session learnings (INDEX.md + TEMPLATE.md)
 ├── manifests/                  # Selective install profiles, context packs & runtime maps
 ├── schemas/                    # JSON schemas for manifests, hooks, and skills
 ├── tools/                      # Lightweight stateless CLIs & pinned MCP client configs
 ├── templates/                  # Shared GLOBAL_AGENTS.md, MAP.md, contexts & project starters
 └── scripts/
+    ├── learn-router.py         # EMA routing weight learner for Smart Learning Orchestrator
     ├── sync.sh                 # Idempotent multi-runtime symlink manager (+ sync.ps1)
     └── validate.sh             # CI check: YAML frontmatter, permissions, paths, Unicode & JSON
 ```
