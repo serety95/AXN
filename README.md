@@ -27,7 +27,7 @@
 ---
 
 > [!WARNING]
-> **Official sources only.** Install AXN exclusively from `github.com/<your-username>/AXN`. Third-party re-uploads and unofficial mirrors are not maintained or reviewed and may contain malicious hooks or prompt injections.
+> **Official sources only.** Install AXN exclusively from `github.com/serety95/AXN`. Third-party re-uploads and unofficial mirrors are not maintained or reviewed and may contain malicious hooks or prompt injections.
 
 ---
 
