@@ -13,8 +13,8 @@
 **The multi-runtime agent harness operating system.**  
 *Your agent can write code, but AXN gives it a coordinated engineering system: it plans before it builds, verifies every edit, blocks destructive actions, and persists instincts across sessions.*
 
-[![Stars](https://img.shields.io/github/stars/<your-username>/AXN?style=flat-square&color=00F0FF&labelColor=0D1117)](https://github.com/<your-username>/AXN/stargazers)
-[![Forks](https://img.shields.io/github/forks/<your-username>/AXN?style=flat-square&color=white&labelColor=0D1117)](https://github.com/<your-username>/AXN/network/members)
+[![Stars](https://img.shields.io/github/stars/serety95/AXN?style=flat-square&color=00F0FF&labelColor=0D1117)](https://github.com/serety95/AXN/stargazers)
+[![Forks](https://img.shields.io/github/forks/serety95/AXN?style=flat-square&color=white&labelColor=0D1117)](https://github.com/serety95/AXN/network/members)
 [![License: MIT](https://img.shields.io/badge/license-MIT-white?style=flat-square&labelColor=0D1117)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-native-D97757?style=flat-square&labelColor=0D1117)](#runtime-matrix)
 [![Cursor](https://img.shields.io/badge/Cursor-native-00A8E8?style=flat-square&labelColor=0D1117)](#runtime-matrix)
@@ -67,7 +67,7 @@ plan ──▶ test ──▶ implement ──▶ review ──▶ verify ──
 ### 1. One-Line Install
 
 ```bash
-git clone https://github.com/<your-username>/AXN.git ~/.axn && ~/.axn/scripts/sync.sh
+git clone https://github.com/serety95/AXN.git ~/.axn && ~/.axn/scripts/sync.sh
 ```
 
 ### 2. Optional CLI Alias
