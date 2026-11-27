@@ -28,52 +28,14 @@ block_fatal() {
   exit 2
 }
 
-read_bounded_stdin() {
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -c '
-import sys
-max_b = int(sys.argv[1])
-data = sys.stdin.buffer.read(max_b + 1)
-if len(data) > max_b:
-    sys.exit(42)
-sys.stdout.buffer.write(data)
-' "$MAX_BYTES"
-  elif command -v python >/dev/null 2>&1; then
-    python -c '
-import sys
-max_b = int(sys.argv[1])
-data = sys.stdin.buffer.read(max_b + 1)
-if len(data) > max_b:
-    sys.exit(42)
-sys.stdout.buffer.write(data)
-' "$MAX_BYTES"
-  elif command -v node >/dev/null 2>&1; then
-    node -e '
-const fs = require("fs");
-const maxB = Number(process.argv[1]);
-const buf = fs.readFileSync(0);
-if (buf.length > maxB) process.exit(42);
-process.stdout.write(buf);
-' "$MAX_BYTES"
-  else
-    local chunk
-    chunk="$(head -c $((MAX_BYTES + 1)))"
-    [ "${#chunk}" -le "$MAX_BYTES" ] || return 42
-    printf '%s' "$chunk"
-  fi
-}
-
-PAYLOAD=""
-if ! PAYLOAD="$(read_bounded_stdin)"; then
-  block_fatal "Hook input exceeded ${MAX_BYTES} bytes (fail-closed)."
-fi
-
-[ -z "${PAYLOAD//[[:space:]]/}" ] && exit 0
-
-# Extract fields safely using Unit Separator (\x1f) to avoid IFS whitespace collapsing
-extract_fields() {
+# Single-process bounded stdin (1 MiB) + JSON field extraction (Unit Separator \x1f)
+extract_bounded_fields() {
   if command -v jq >/dev/null 2>&1; then
-    printf '%s' "$PAYLOAD" | jq -r '
+    local payload
+    payload="$(head -c $((MAX_BYTES + 1)))"
+    [ "${#payload}" -le "$MAX_BYTES" ] || return 42
+    [ -z "${payload//[[:space:]]/}" ] && return 0
+    printf '%s' "$payload" | jq -r '
       def ti: (.tool_input // .toolInput // {});
       def slice_limit:
         if (ti.limit != null) then (ti.limit | tostring)
@@ -86,14 +48,21 @@ extract_fields() {
         slice_limit,
         (ti.command // ti.CommandLine // "")
       ] | map(tostring | gsub("[\u001f\r\n]"; " ")) | join("\u001f") + "\u001f"
-    '
+    ' || return 2
   elif command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
     local py_bin="python3"
     command -v python3 >/dev/null 2>&1 || py_bin="python"
-    printf '%s' "$PAYLOAD" | "$py_bin" -c '
+    "$py_bin" -c '
 import json, sys
+max_b = int(sys.argv[1])
+data = sys.stdin.buffer.read(max_b + 1)
+if len(data) > max_b:
+    sys.exit(42)
+text = data.decode("utf-8", errors="replace").strip()
+if not text:
+    sys.exit(0)
 try:
-    d = json.load(sys.stdin)
+    d = json.loads(text)
 except Exception:
     sys.exit(2)
 if not isinstance(d, dict):
@@ -115,12 +84,17 @@ vals = [
 ]
 vals = [v.replace("\x1f", " ").replace("\n", " ").replace("\r", "") for v in vals]
 print("\x1f".join(vals) + "\x1f")
-'
+' "$MAX_BYTES"
   elif command -v node >/dev/null 2>&1; then
-    printf '%s' "$PAYLOAD" | node -e '
+    node -e '
 const fs = require("fs");
+const maxB = Number(process.argv[1]);
+const buf = fs.readFileSync(0);
+if (buf.length > maxB) process.exit(42);
+const text = buf.toString("utf8").trim();
+if (!text) process.exit(0);
 let d;
-try { d = JSON.parse(fs.readFileSync(0, "utf8")); } catch { process.exit(2); }
+try { d = JSON.parse(text); } catch { process.exit(2); }
 if (!d || typeof d !== "object") process.exit(2);
 const ti = (d.tool_input && typeof d.tool_input === "object") ? d.tool_input :
            (d.toolInput && typeof d.toolInput === "object") ? d.toolInput : {};
@@ -136,16 +110,22 @@ console.log([
   clean(lim == null ? "" : lim),
   clean(ti.command || ti.CommandLine || "")
 ].join("\x1f") + "\x1f");
-'
+' "$MAX_BYTES"
   else
     block_fatal "No JSON parser (jq, python3, python, or node) available for safety check."
   fi
 }
 
 PARSED=""
-if ! PARSED="$(extract_fields)"; then
+RC=0
+PARSED="$(extract_bounded_fields)" || RC=$?
+if [ "$RC" -eq 42 ]; then
+  block_fatal "Hook input exceeded ${MAX_BYTES} bytes (fail-closed)."
+elif [ "$RC" -ne 0 ]; then
   block_fatal "Malformed JSON payload on stdin (fail-closed)."
 fi
+
+[ -z "${PARSED//[[:space:]]/}" ] && exit 0
 
 IFS=$'\x1f' read -r TOOL_NAME RAW_PATH LIMIT_VAL CMD _ <<< "$PARSED"
 

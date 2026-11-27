@@ -76,20 +76,6 @@
       },
       "description": "Jira & Confluence integration (pinned uvx package, placeholder credentials)"
     },
-    "nexus": {
-      "command": "nexus",
-      "args": [
-        "mcp"
-      ],
-      "description": "Local cost/privacy proxy - query your own usage & savings, route to the cheapest capable model, and mask secrets/PII before egress (nexus_stats, nexus_savings, nexus_recent, nexus_providers, nexus_cost_breakdown)"
-    },
-    "ito-compute": {
-      "command": "node",
-      "args": [
-        "/absolute/path/to/ito-cloud-runtime/cli/ito-compute-cli/dist/bin/ito-mcp.js"
-      ],
-      "description": "Opt-in local It\u00f4 compute MCP. The canonical package is unpublished and must be built from Ito-Markets/ito-cloud-runtime/cli/ito-compute-cli. Exposes ito_auth, ito_find, ito_status, and ito_accept. ito_auth validates existing credentials; it does not start device login. Use ecc ito login [--no-browser] for device authorization, which stores tokens in macOS Keychain by default; explicit file fallback must retain owner-only settings. ECC itself performs no browser automation. ITO_API_KEY is forwarded directly to auth, find, status, and accept when configured; ITO_AUTH_MODE=legacy is not required."
-    },
     "jira": {
       "command": "uvx",
       "args": [
@@ -102,60 +88,10 @@
       },
       "description": "Jira issue tracking \u2014 search, create, update, comment, transition issues"
     },
-    "firecrawl": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "firecrawl-mcp"
-      ],
-      "env": {
-        "FIRECRAWL_API_KEY": "YOUR_FIRECRAWL_KEY_HERE"
-      },
-      "description": "Web scraping and crawling"
-    },
-    "supabase": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@supabase/mcp-server-supabase@YOUR_PINNED_VERSION_HERE",
-        "--project-ref=YOUR_PROJECT_REF"
-      ],
-      "description": "Supabase database operations"
-    },
-    "ecc-memory-vault": {
-      "command": "ecc-memory-mcp",
-      "env": {
-        "ECC_MEMORY_HARNESS": "YOUR_LOWERCASE_HARNESS_SLUG_HERE"
-      },
-      "description": "Opt-in local ECC Memory Vault shared by Claude, Codex, Hermes, Cursor, OpenCode, and other MCP clients. Replace ECC_MEMORY_HARNESS with this server's lowercase identity; callers cannot override it. Normal search recall is active project+team memory. To permit explicitly requested user scope, the operator may also set ECC_MEMORY_ALLOW_USER_SCOPE=1. Writes are create-only and always unreviewed. Install ECC globally or make its bin available on PATH. Not enabled by default."
-    },
-    "omega-memory": {
-      "command": "uvx",
-      "args": [
-        "omega-memory",
-        "serve"
-      ],
-      "description": "Persistent agent memory with semantic search, multi-agent coordination, and knowledge graphs \u2014 run via uvx (richer than the basic memory store)"
-    },
-    "longhand": {
-      "command": "longhand",
-      "args": [
-        "mcp-server"
-      ],
-      "description": "Lossless Claude Code session history \u2014 indexes raw tool calls, file edits, and thinking blocks from ~/.claude/projects/*.jsonl into local SQLite + ChromaDB before Claude Code rotates them. Complements memory/omega-memory (synthesized) with verbatim recall. Install: pip install longhand && longhand setup"
-    },
     "vercel": {
       "type": "http",
       "url": "https://mcp.vercel.com",
       "description": "Vercel deployments and projects"
-    },
-    "railway": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@railway/mcp-server"
-      ],
-      "description": "Railway deployments"
     },
     "cloudflare-docs": {
       "type": "http",
@@ -182,17 +118,6 @@
       "url": "https://mcp.clickhouse.cloud/mcp",
       "description": "ClickHouse analytics queries"
     },
-    "exa-web-search": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "exa-mcp-server"
-      ],
-      "env": {
-        "EXA_API_KEY": "YOUR_EXA_API_KEY_HERE"
-      },
-      "description": "Web search, research, and data ingestion via Exa API \u2014 prefer task-scoped use for broader research after GitHub search and primary docs"
-    },
     "parallel-search": {
       "type": "http",
       "url": "https://search.parallel.ai/mcp",
@@ -206,25 +131,6 @@
       },
       "description": "YouTube transcript search and monitoring for your AI: exact quotes, full transcripts and speakers. Needs an Arcmira API key, or drop the headers block on hosts that sign in with MCP OAuth."
     },
-    "codescene": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@codescene/codehealth-mcp"
-      ],
-      "env": {
-        "CS_ACCESS_TOKEN": "YOUR_CS_ACCESS_TOKEN_HERE"
-      },
-      "description": "Optional. CodeScene Code Health MCP (community skill: codehealth-mcp). Not enabled by default \u2014 copy only if you opt in. Requires your own CS_ACCESS_TOKEN (no bundled credentials). See skills/codehealth-mcp/SKILL.md for data boundaries and failure behavior."
-    },
-    "magic": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@magicuidesign/mcp@YOUR_PINNED_VERSION_HERE"
-      ],
-      "description": "Magic UI components"
-    },
     "memxus": {
       "type": "http",
       "url": "https://mcp.memxus.com/mcp",
@@ -232,28 +138,6 @@
         "Authorization": "Bearer YOUR_MEMXUS_API_KEY_HERE"
       },
       "description": "Universal persistent memory across Claude Code, Cursor, Gemini CLI and any AI tool \u2014 save context once, auto-recalled in every session. Note: review stored memories before use in production agents to avoid prompt-injection via memory-poisoning. Free at memxus.com"
-    },
-    "fal-ai": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "fal-ai-mcp-server"
-      ],
-      "env": {
-        "FAL_KEY": "YOUR_FAL_KEY_HERE"
-      },
-      "description": "AI image/video/audio generation via fal.ai models"
-    },
-    "browserbase": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@browserbasehq/mcp-server-browserbase"
-      ],
-      "env": {
-        "BROWSERBASE_API_KEY": "YOUR_BROWSERBASE_KEY_HERE"
-      },
-      "description": "Cloud browser sessions via Browserbase"
     },
     "browser-use": {
       "type": "http",
@@ -268,44 +152,10 @@
       "url": "http://localhost:18801/mcp",
       "description": "Multi-agent orchestration \u2014 dispatch parallel Claude Code agents in isolated worktrees. Plan projects, auto-chain missions, read structured reports. Repo: https://github.com/LEC-AI/claude-devfleet"
     },
-    "token-optimizer": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "token-optimizer-mcp"
-      ],
-      "description": "Token optimization for 95%+ context reduction via content deduplication and compression"
-    },
     "laraplugins": {
       "type": "http",
       "url": "https://laraplugins.io/mcp/plugins",
       "description": "Laravel plugin discovery \u2014 search packages by keyword, health score, Laravel/PHP version compatibility. Use with laravel-plugin-discovery skill."
-    },
-    "confluence": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "confluence-mcp-server"
-      ],
-      "env": {
-        "CONFLUENCE_BASE_URL": "YOUR_CONFLUENCE_URL_HERE",
-        "CONFLUENCE_EMAIL": "YOUR_EMAIL_HERE",
-        "CONFLUENCE_API_TOKEN": "YOUR_CONFLUENCE_TOKEN_HERE"
-      },
-      "description": "Confluence Cloud integration \u2014 search pages, retrieve content, explore spaces"
-    },
-    "evalview": {
-      "command": "python3",
-      "args": [
-        "-m",
-        "evalview",
-        "mcp",
-        "serve"
-      ],
-      "env": {
-        "OPENAI_API_KEY": "YOUR_OPENAI_API_KEY_HERE"
-      },
-      "description": "AI agent regression testing \u2014 snapshot behavior, detect regressions in tool calls and output quality. 8 tools: create_test, run_snapshot, run_check, list_tests, validate_skill, generate_skill_tests, run_skill_test, generate_visual_report. API key optional \u2014 deterministic checks (tool diff, output hash) work without it. Install: pip install \"evalview>=0.5,<1\""
     },
     "mnemosyne-os": {
       "command": "npx",
@@ -325,7 +175,7 @@
   "_comments": {
     "usage": "Copy only the servers you need into your local ~/.claude.json, ~/.cursor/mcp.json, or ~/.codex/config.toml",
     "env_vars": "Replace YOUR_*_HERE placeholders with actual values (never commit real secrets)",
-    "pinning": "Replace any YOUR_PINNED_VERSION_HERE or unpinned npx packages with an explicit reviewed version",
+    "pinning": "All npx and uvx servers are pinned to explicit reviewed versions (no @latest)",
     "context_warning": "Keep under 10 MCPs enabled to preserve context window"
   }
 }

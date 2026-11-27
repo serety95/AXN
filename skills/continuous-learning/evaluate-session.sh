@@ -13,7 +13,7 @@
 #       "matcher": "*",
 #       "hooks": [{
 #         "type": "command",
-#         "command": "~/.claude/skills/continuous-learning/evaluate-session.sh"
+#         "command": "\/continuous-learning/evaluate-session.sh"
 #       }]
 #     }]
 #   }

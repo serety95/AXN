@@ -13,7 +13,7 @@ repo: https://github.com/sreedhargs89/context-keeper
 You are the **Context Keeper** assistant. When the user invokes any `/ck:*` command,
 run the corresponding Node.js script and present its stdout to the user verbatim.
 Scripts live in the `commands/` directory next to this SKILL.md (for example
-`~/.claude/skills/ck/commands/` for a manual install, or the ck skill inside the ECC
+`\/ck/commands/` for a manual install, or the ck skill inside the ECC
 plugin). The commands below refer to the skill directory as `${CLAUDE_SKILL_DIR}`,
 which Claude Code fills in; in other hosts, replace it with the absolute path of the
 directory containing this SKILL.md. Run the scripts from the project directory; do not
@@ -136,7 +136,7 @@ Originals are backed up as `meta.json.v1-backup` — nothing is deleted.
 
 The hook at `hooks/session-start.mjs` in this skill's directory must be registered in
 `~/.claude/settings.json` to auto-load project context on session start. For a manual
-install in `~/.claude/skills/ck`:
+install in `\/ck`:
 
 ```json
 {

@@ -14,79 +14,7 @@ warn() {
   printf '[AXN orchestrator-feedback] WARN: %s\n' "$1" >&2
 }
 
-read_bounded_stdin() {
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -c '
-import sys
-max_b = int(sys.argv[1])
-data = sys.stdin.buffer.read(max_b + 1)
-if len(data) > max_b:
-    sys.exit(42)
-sys.stdout.buffer.write(data)
-' "$MAX_BYTES"
-  elif command -v python >/dev/null 2>&1; then
-    python -c '
-import sys
-max_b = int(sys.argv[1])
-data = sys.stdin.buffer.read(max_b + 1)
-if len(data) > max_b:
-    sys.exit(42)
-sys.stdout.buffer.write(data)
-' "$MAX_BYTES"
-  elif command -v node >/dev/null 2>&1; then
-    node -e '
-const fs = require("fs");
-const maxB = Number(process.argv[1]);
-const buf = fs.readFileSync(0);
-if (buf.length > maxB) process.exit(42);
-process.stdout.write(buf);
-' "$MAX_BYTES"
-  else
-    local chunk
-    chunk="$(head -c $((MAX_BYTES + 1)))"
-    [ "${#chunk}" -le "$MAX_BYTES" ] || return 42
-    printf '%s' "$chunk"
-  fi
-}
-
-PAYLOAD=""
-if ! PAYLOAD="$(read_bounded_stdin)"; then
-  warn "Hook input exceeded ${MAX_BYTES} bytes; skipping telemetry."
-  exit 0
-fi
-
-[ -z "${PAYLOAD//[[:space:]]/}" ] && exit 0
-
-# Respect stop_hook_active=true to avoid duplicate runs during retry loops
-STOP_ACTIVE="false"
-if command -v jq >/dev/null 2>&1; then
-  STOP_ACTIVE="$(printf '%s' "$PAYLOAD" | jq -r '(.stop_hook_active // false) | tostring' 2>/dev/null || echo "false")"
-elif command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
-  local_py="python3"
-  command -v python3 >/dev/null 2>&1 || local_py="python"
-  STOP_ACTIVE="$(printf '%s' "$PAYLOAD" | "$local_py" -c '
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    print("true" if isinstance(d, dict) and d.get("stop_hook_active") is True else "false")
-except Exception:
-    print("false")
-' 2>/dev/null || echo "false")"
-elif command -v node >/dev/null 2>&1; then
-  STOP_ACTIVE="$(printf '%s' "$PAYLOAD" | node -e '
-const fs = require("fs");
-try {
-  const d = JSON.parse(fs.readFileSync(0, "utf8"));
-  console.log(d && d.stop_hook_active === true ? "true" : "false");
-} catch { console.log("false"); }
-' 2>/dev/null || echo "false")"
-fi
-
-if [ "$STOP_ACTIVE" = "true" ]; then
-  exit 0
-fi
-
-# Determine python binary for extraction and learn-router.py execution
+# Determine python binary for single-process stdin cap + extraction + learn-router.py
 PY_BIN=""
 if command -v python3 >/dev/null 2>&1; then
   PY_BIN="python3"
@@ -100,16 +28,30 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 REPO_KEY="$(printf '%s' "$REPO_ROOT" | cksum | awk '{print $1"-"$2}')"
 REPO_STRIKE_DIR="${STRIKE_DIR}/${REPO_KEY}"
 
-# Extract AXN_TELEMETRY JSON (prioritizing direct message fields over transcript_path,
-# rejecting <...> / | placeholders) and attach deterministic passed/retries ground truth.
-TELEMETRY_JSON="$(printf '%s' "$PAYLOAD" | AXN_REPO_STRIKE_DIR="$REPO_STRIKE_DIR" "$PY_BIN" -c '
+# Single-process bounded stdin (1 MiB) + stop_hook_active check + AXN_TELEMETRY extraction
+# (prioritizing direct message fields over transcript_path, rejecting <...> / | placeholders)
+# + deterministic passed/retries ground truth.
+TELEMETRY_JSON="$(AXN_MAX_BYTES="$MAX_BYTES" AXN_REPO_STRIKE_DIR="$REPO_STRIKE_DIR" "$PY_BIN" -c '
 import json, os, re, sys
 
+max_b = int(os.environ.get("AXN_MAX_BYTES", "1048576"))
+data = sys.stdin.buffer.read(max_b + 1)
+if len(data) > max_b:
+    sys.stderr.write(f"[AXN orchestrator-feedback] WARN: Hook input exceeded {max_b} bytes; skipping telemetry.\n")
+    sys.exit(0)
+
+raw_text = data.decode("utf-8", errors="replace").strip()
+if not raw_text:
+    sys.exit(0)
+
 try:
-    payload = json.load(sys.stdin)
+    payload = json.loads(raw_text)
 except Exception:
     sys.exit(0)
 if not isinstance(payload, dict):
+    sys.exit(0)
+
+if payload.get("stop_hook_active") is True:
     sys.exit(0)
 
 def parse_valid_telemetry(text):

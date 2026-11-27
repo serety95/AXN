@@ -68,8 +68,10 @@ Preflight ──▶ Rank ──▶ Route ──▶ Verify ──▶ Escalate ─
 ### 1. One-Line Install
 
 ```bash
-git clone https://github.com/serety95/AXN.git ~/.axn && ~/.axn/scripts/sync.sh
+git clone https://github.com/serety95/AXN.git ~/.axn && ~/.axn/scripts/sync.sh --wire-hooks
 ```
+
+*(Defaults to `--profile core` and safely merges AXN's 6 lifecycle hooks into `~/.claude/settings.json`. Use `--profile full` to link all 350+ skills and commands.)*
 
 ### 2. Optional CLI Alias
 
@@ -82,14 +84,17 @@ alias axn="~/.axn/scripts/sync.sh"
 ### 3. Targeted Sync, Dry-Run & Safe Rollback
 
 ```bash
-# Preview every symlink action without modifying your filesystem
-axn --dry-run
+# Preview every symlink & hook-wiring action without modifying your filesystem
+axn --dry-run --wire-hooks
+
+# Sync all skills/commands/rules (Developer / Full profile)
+axn --profile full --wire-hooks
 
 # Sync specific runtimes only
 axn --claude --codex
 
-# Cleanly unlink only symlinks managed by AXN
-axn --uninstall
+# Cleanly unlink AXN symlinks and unwire AXN hooks
+axn --uninstall --wire-hooks
 ```
 
 > [!NOTE]
@@ -99,7 +104,7 @@ axn --uninstall
 
 ## Starter Modules
 
-AXN ships with **5 battle-tested modules** (3 deterministic lifecycle hooks + 2 high-leverage skills) ready on Day 1:
+AXN ships with **6 core starter modules** (4 deterministic lifecycle hooks + 2 high-leverage skills, plus `config-protection` & `orchestrator-feedback`) ready on Day 1:
 
 | Module | Type | Trigger / Invocation | Core Problem Solved |
 | :--- | :--- | :--- | :--- |
@@ -155,7 +160,7 @@ AXN maps a single unified repository layout into the native paths expected by ea
 | `skills/<name>/` | `~/.claude/skills/<name>` | `~/.cursor/skills/<name>` | `~/.codex/skills/<name>` |
 | `agents/<name>.md` | `~/.claude/agents/<name>.md` | `~/.cursor/rules/<name>.mdc` | *(loaded via `AGENTS.md`)* |
 | `commands/` | `~/.claude/commands` | `~/.cursor/commands` | *Roadmap* |
-| `rules/` | `~/.claude/rules` | *(`rules/*.mdc`)* | *Roadmap* |
+| `rules/` | `~/.claude/rules` | *Claude-only (`rules/`)* | *Roadmap* |
 | `contexts/` | `~/.claude/contexts` | *Roadmap* | *Roadmap* |
 | `hooks/` | `~/.claude/hooks` | `~/.cursor/hooks` | *Roadmap* |
 | `templates/GLOBAL_AGENTS.md` | `~/.claude/CLAUDE.md` | `~/.cursor/rules/global.mdc` | `~/.codex/AGENTS.md` |
@@ -163,7 +168,7 @@ AXN maps a single unified repository layout into the native paths expected by ea
 | Harness | Skills (`SKILL.md`) | Sub-Agents / Rules | Lifecycle Hooks | Status |
 | :--- | :---: | :---: | :---: | :--- |
 | **Claude Code** | Native | Full | Full | **Supported** |
-| **Cursor** | Native | Full (`.mdc`) | Full | **Supported** |
+| **Cursor** | Native | Agents + `global.mdc` | Full | **Supported** |
 | **Codex CLI** | Native | Via `AGENTS.md` | Planned | **Supported** |
 | **Gemini CLI / OpenCode / Zed** | Planned | Planned | Planned | **Roadmap** |
 
@@ -179,7 +184,7 @@ AXN/
 ├── commands/                   # Slash commands (99 workflows for TDD, plan, review, verify)
 ├── rules/                      # Always-loaded common & language-specific rules (122 rules)
 ├── contexts/                   # Mode-specific context profiles (dev, research, review)
-├── hooks/                      # Deterministic guardrails + ECC lifecycle hooks
+├── hooks/                      # Deterministic lifecycle guardrails (.sh hooks + route-skills.mjs)
 │   ├── pre-tool-use/
 │   │   ├── blast-radius-guard.sh
 │   │   ├── config-protection.sh
@@ -190,14 +195,15 @@ AXN/
 │       ├── orchestrator-feedback.sh
 │       └── stop-gate-verifier.sh
 ├── instincts/                  # Persistent cross-session learnings (INDEX.md + TEMPLATE.md)
-├── manifests/                  # Selective install profiles, context packs & runtime maps
+├── manifests/                  # Selective install profiles, modules & runtime matrix
 ├── schemas/                    # JSON schemas for manifests, hooks, and skills
-├── tools/                      # Lightweight stateless CLIs & pinned MCP client configs
+├── tests/                      # Regression tests for manifests, sync, hooks & learn-router
+├── tools/                      # Pinned MCP server templates (no unpinned @latest)
 ├── templates/                  # Shared GLOBAL_AGENTS.md, MAP.md, contexts & project starters
 └── scripts/
-    ├── learn-router.py         # EMA routing weight learner for Smart Learning Orchestrator
-    ├── sync.sh                 # Idempotent multi-runtime symlink manager (+ sync.ps1)
-    └── validate.sh             # CI check: YAML frontmatter, permissions, paths, Unicode & JSON
+    ├── learn-router.py         # Expected-cost & ROI EMA routing learner (linked as axn-router)
+    ├── sync.sh                 # Idempotent multi-runtime symlink manager + --wire-hooks (+ sync.ps1)
+    └── validate.sh             # CI check: syntax, permissions, manifests, tests, paths, Unicode & JSON
 ```
 
 ---
@@ -210,16 +216,27 @@ AXN deliberately **does not symlink** `~/.claude/settings.json` or `~/.codex/con
 
 ### 2. Wiring Hooks in Claude Code (`~/.claude/settings.json`)
 
+Run `~/.axn/scripts/sync.sh --wire-hooks` (or `.\scripts\sync.ps1 -WireHooks` on Windows) to merge all 6 AXN hooks into `~/.claude/settings.json` automatically with timestamped backup, or merge manually:
+
 ```json
 {
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit",
+        "matcher": "Bash|Write|Edit|Read",
         "hooks": [
           {
             "type": "command",
             "command": "~/.claude/hooks/pre-tool-use/blast-radius-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/pre-tool-use/config-protection.sh"
           }
         ]
       },
@@ -250,6 +267,10 @@ AXN deliberately **does not symlink** `~/.claude/settings.json` or `~/.codex/con
           {
             "type": "command",
             "command": "~/.claude/hooks/stop/stop-gate-verifier.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/stop/orchestrator-feedback.sh"
           }
         ]
       }
@@ -289,14 +310,14 @@ AXN routes work across **4 cost tiers** for Claude Code, Codex CLI, Cursor, Gemi
 - **Expected-Cost & ROI Smart Learning (`scripts/learn-router.py`):** Minimizes expected cost `E[cost] = cost(tier) + (1 - p_eff) * escalation_cost(tier)` using `relative_cost` (`T0=0, T1=1, T2=20, T3=40`) from `config/cost-tiers.yaml`, task safety floors (`0.90` for `security_audit`/`architecture_plan`/`race_condition_debug`, `0.75` otherwise), cold-start EMA (`alpha=0.4` for `<3` tier samples, `0.2` thereafter), and `14`-day staleness re-probing. Tracks `instincts_used` pass-rate lift and sanitized `failure_signatures`:
   ```bash
   # Query lowest expected-cost safe tier (falls back to config/cost-tiers.yaml when null)
-  python3 scripts/learn-router.py --recommend --task-type feature_impl --stack typescript
+  axn-router --recommend --task-type feature_impl --stack typescript
 
   # Inspect cost savings vs always-T2/T3, instinct lift/bloat, and recurring failure promotion candidates
-  python3 scripts/learn-router.py --roi-report
+  axn-router --roi-report
 
-  # Inspect raw weights or replay routing-ledger.jsonl
-  python3 scripts/learn-router.py --summary
-  python3 scripts/learn-router.py --recompute
+  # Inspect raw weights or replay routing-ledger.jsonl (also available via ~/.axn/scripts/learn-router.py)
+  python3 ~/.axn/scripts/learn-router.py --summary
+  python3 ~/.axn/scripts/learn-router.py --recompute
   ```
 
 ---

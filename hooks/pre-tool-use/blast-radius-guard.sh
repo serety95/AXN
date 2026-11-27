@@ -13,72 +13,36 @@ block() {
   exit 2
 }
 
-# Read bounded stdin (fail-closed if oversized)
-read_bounded_stdin() {
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -c '
-import sys
-max_b = int(sys.argv[1])
-data = sys.stdin.buffer.read(max_b + 1)
-if len(data) > max_b:
-    sys.exit(42)
-sys.stdout.buffer.write(data)
-' "$MAX_BYTES"
-  elif command -v python >/dev/null 2>&1; then
-    python -c '
-import sys
-max_b = int(sys.argv[1])
-data = sys.stdin.buffer.read(max_b + 1)
-if len(data) > max_b:
-    sys.exit(42)
-sys.stdout.buffer.write(data)
-' "$MAX_BYTES"
-  elif command -v node >/dev/null 2>&1; then
-    node -e '
-const fs = require("fs");
-const maxB = Number(process.argv[1]);
-const buf = fs.readFileSync(0);
-if (buf.length > maxB) process.exit(42);
-process.stdout.write(buf);
-' "$MAX_BYTES"
-  else
-    # Pure bash fallback (caps by byte count via head -c)
-    local chunk
-    chunk="$(head -c $((MAX_BYTES + 1)))"
-    if [ "${#chunk}" -gt "$MAX_BYTES" ]; then
-      return 42
-    fi
-    printf '%s' "$chunk"
-  fi
-}
-
-PAYLOAD=""
-if ! PAYLOAD="$(read_bounded_stdin)"; then
-  block "Hook input exceeded ${MAX_BYTES} bytes (fail-closed)."
-fi
-
-if [ -z "${PAYLOAD//[[:space:]]/}" ]; then
-  exit 0
-fi
-
-# Extract fields safely without shell interpolation (Unit Separator \x1f avoids IFS whitespace collapsing)
-extract_fields() {
+# Single-process bounded stdin (1 MiB) + JSON field extraction (Unit Separator \x1f avoids IFS whitespace collapsing)
+# Exit codes from extractor: 0 = ok (empty stdout if blank input), 42 = oversized, 2 = malformed JSON
+extract_bounded_fields() {
   if command -v jq >/dev/null 2>&1; then
-    printf '%s' "$PAYLOAD" | jq -r '
+    local payload
+    payload="$(head -c $((MAX_BYTES + 1)))"
+    [ "${#payload}" -le "$MAX_BYTES" ] || return 42
+    [ -z "${payload//[[:space:]]/}" ] && return 0
+    printf '%s' "$payload" | jq -r '
       [
         (.tool_name // .toolName // ""),
         (.tool_input.command // .tool_input.CommandLine // .toolInput.command // .toolInput.CommandLine // ""),
         (.tool_input.file_path // .tool_input.path // .tool_input.TargetFile // .tool_input.Path // .toolInput.file_path // .toolInput.path // .toolInput.TargetFile // .toolInput.Path // ""),
         (.tool_input.content // .tool_input.new_string // .toolInput.content // .toolInput.new_string // "")
       ] | map(tostring | gsub("[\u001f\r\n]"; " ")) | join("\u001f") + "\u001f"
-    '
+    ' || return 2
   elif command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
     local py_bin="python3"
     command -v python3 >/dev/null 2>&1 || py_bin="python"
-    printf '%s' "$PAYLOAD" | "$py_bin" -c '
+    "$py_bin" -c '
 import json, sys
+max_b = int(sys.argv[1])
+data = sys.stdin.buffer.read(max_b + 1)
+if len(data) > max_b:
+    sys.exit(42)
+text = data.decode("utf-8", errors="replace").strip()
+if not text:
+    sys.exit(0)
 try:
-    d = json.load(sys.stdin)
+    d = json.loads(text)
 except Exception:
     sys.exit(2)
 if not isinstance(d, dict):
@@ -94,12 +58,17 @@ vals = [
 ]
 vals = [v.replace("\x1f", " ").replace("\n", " ").replace("\r", "") for v in vals]
 print("\x1f".join(vals) + "\x1f")
-'
+' "$MAX_BYTES"
   elif command -v node >/dev/null 2>&1; then
-    printf '%s' "$PAYLOAD" | node -e '
+    node -e '
 const fs = require("fs");
+const maxB = Number(process.argv[1]);
+const buf = fs.readFileSync(0);
+if (buf.length > maxB) process.exit(42);
+const text = buf.toString("utf8").trim();
+if (!text) process.exit(0);
 let d;
-try { d = JSON.parse(fs.readFileSync(0, "utf8")); } catch { process.exit(2); }
+try { d = JSON.parse(text); } catch { process.exit(2); }
 if (!d || typeof d !== "object") process.exit(2);
 const ti = (d.tool_input && typeof d.tool_input === "object") ? d.tool_input :
            (d.toolInput && typeof d.toolInput === "object") ? d.toolInput : {};
@@ -110,16 +79,22 @@ console.log([
   clean(ti.file_path || ti.path || ti.TargetFile || ti.Path || ""),
   clean(ti.content || ti.new_string || "")
 ].join("\x1f") + "\x1f");
-'
+' "$MAX_BYTES"
   else
     block "No JSON parser (jq, python3, python, or node) available for safety check."
   fi
 }
 
 PARSED=""
-if ! PARSED="$(extract_fields)"; then
+RC=0
+PARSED="$(extract_bounded_fields)" || RC=$?
+if [ "$RC" -eq 42 ]; then
+  block "Hook input exceeded ${MAX_BYTES} bytes (fail-closed)."
+elif [ "$RC" -ne 0 ]; then
   block "Malformed JSON payload on stdin (fail-closed)."
 fi
+
+[ -z "${PARSED//[[:space:]]/}" ] && exit 0
 
 IFS=$'\x1f' read -r TOOL_NAME CMD FILE_PATH CONTENT _ <<< "$PARSED"
 

@@ -17,11 +17,11 @@ You are the AXN Master Orchestrator (`T2_builder`). Coordinate the unified 7-sta
 
 1. **Preflight:** Read `.ai/MAP.md` (or delegate to `repo-scout`, `T1_scout`) and `instincts/INDEX.md` (if present; degrade gracefully if absent).
 2. **Rank:** For multi-task backlogs, use `roi-loop-orchestrator` to rank work by ROI and cap retries.
-3. **Route:** Run `python scripts/learn-router.py --recommend --task-type <task_type> --stack <stack>` (or `python3`) to get `recommended_tier` (expected-cost `E[cost]` minimized over tiers meeting the safety floor: `0.90` for `security_audit`/`architecture_plan`/`race_condition_debug`, `0.75` otherwise, with 14-day staleness decay). Fall back to `config/cost-tiers.yaml` defaults when `recommended_tier` is `null`.
+3. **Route:** Run `axn-router --recommend --task-type <task_type> --stack <stack>` (or `python ~/.axn/scripts/learn-router.py --recommend ...`) to get `recommended_tier` (expected-cost `E[cost]` minimized over tiers meeting the safety floor: `0.90` for `security_audit`/`architecture_plan`/`race_condition_debug`, `0.75` otherwise, with 14-day staleness decay). Fall back to `config/cost-tiers.yaml` defaults when `recommended_tier` is `null`.
 4. **Verify:** Execute edits under `blast-radius-guard`, `config-protection`, `token-budget-guard`, `auto-verify-loop`, and `stop-gate-verifier`.
 5. **Escalate:** Prefer bumping reasoning effort (`low -> medium -> high`, `"escalated_effort": true`) before upgrading tier (`"escalated": true`, `"final_tier": "T3"`) after 2 strikes on the same root cause.
 6. **Attribute:** Emit `AXN_TELEMETRY` (below) so `orchestrator-feedback.sh` merges deterministic `turn-state.json` ground truth (`passed`, `retries`, `failure_signatures`) into `learn-router.py`.
-7. **Distill/Prune:** Periodically run `python scripts/learn-router.py --roi-report` with `continuous-learning-v2` to promote recurring `failure_signatures` (`count >= 2`) and prune unused instincts.
+7. **Distill/Prune:** Periodically run `axn-router --roi-report` (or `python ~/.axn/scripts/learn-router.py --roi-report`) with `continuous-learning-v2` to promote recurring `failure_signatures` (`count >= 2`) and prune unused instincts.
 
 ## 4-Tier Multi-Provider Routing Rules
 

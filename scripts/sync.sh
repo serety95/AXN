@@ -10,22 +10,24 @@ set -euo pipefail
 
 DRY_RUN=0
 UNINSTALL=0
+WIRE_HOOKS=0
 SYNC_CLAUDE=0
 SYNC_CURSOR=0
 SYNC_CODEX=0
-PROFILE="full"
+PROFILE="core"
 
 usage() {
   cat <<'EOF'
 Usage: sync.sh [OPTIONS]
 
 Options:
-  --dry-run           Preview symlink actions without modifying the filesystem
-  --uninstall         Remove only symlinks managed by this AXN repository
+  --dry-run           Preview symlink/settings actions without modifying the filesystem
+  --uninstall         Remove only symlinks (and wired hooks with --wire-hooks) managed by AXN
+  --wire-hooks        Safely merge all 6 AXN lifecycle hooks into ~/.claude/settings.json
   --claude            Sync Claude Code (~/.claude)
   --cursor            Sync Cursor (~/.cursor)
   --codex             Sync Codex CLI (~/.codex)
-  --profile <name>    Profile: minimal | core | developer | security | full (default: full)
+  --profile <name>    Profile: minimal | core | developer | security | full (default: core)
   -h, --help          Show this help message
 EOF
 }
@@ -34,6 +36,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)    DRY_RUN=1; shift ;;
     --uninstall)  UNINSTALL=1; shift ;;
+    --wire-hooks) WIRE_HOOKS=1; shift ;;
     --claude)     SYNC_CLAUDE=1; shift ;;
     --cursor)     SYNC_CURSOR=1; shift ;;
     --codex)      SYNC_CODEX=1; shift ;;
@@ -85,25 +88,103 @@ if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
   fi
 fi
 
+PYTHON_BIN=""
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+fi
+
+# Resolve active modules & skill list from manifests/ (with safe static fallback)
+MANIFEST_MODULES="|"
+MANIFEST_SKILLS_MODE="none"
+MANIFEST_SKILLS="|"
+
+load_manifest_plan() {
+  local profiles_json="$AXN_ROOT/manifests/install-profiles.json"
+  local modules_json="$AXN_ROOT/manifests/install-modules.json"
+  if [[ -n "$PYTHON_BIN" && -f "$profiles_json" && -f "$modules_json" ]]; then
+    local plan
+    plan="$("$PYTHON_BIN" - "$profiles_json" "$modules_json" "$PROFILE" <<'PYEOF'
+import json, sys
+
+profiles_path, modules_path, profile_name = sys.argv[1:4]
+profiles_doc = json.load(open(profiles_path, "r", encoding="utf-8"))
+modules_doc = json.load(open(modules_path, "r", encoding="utf-8"))
+
+profile_obj = profiles_doc.get("profiles", {}).get(profile_name)
+if not isinstance(profile_obj, dict):
+    sys.exit(1)
+
+active_mods = list(profile_obj.get("modules", []))
+mod_map = {m.get("id"): m for m in modules_doc.get("modules", []) if isinstance(m, dict)}
+
+skills_mode = "none"
+allowed_skills = []
+for mid in active_mods:
+    mod = mod_map.get(mid, {})
+    if mid == "all-skills" or "skills/" in mod.get("paths", []):
+        skills_mode = "all"
+    elif mod.get("kind") == "skill":
+        if skills_mode != "all":
+            skills_mode = "list"
+        for p in mod.get("paths", []):
+            if isinstance(p, str) and p.startswith("skills/"):
+                sname = p[len("skills/"):].strip("/")
+                if sname and sname not in allowed_skills:
+                    allowed_skills.append(sname)
+
+print("MODULES=|" + "|".join(active_mods) + "|")
+print("SKILLS_MODE=" + skills_mode)
+print("SKILLS=|" + "|".join(allowed_skills) + "|")
+PYEOF
+    )" || true
+    if [[ -n "$plan" ]]; then
+      while IFS= read -r line; do
+        line="${line%$'\r'}"
+        case "$line" in
+          MODULES=*)     MANIFEST_MODULES="${line#MODULES=}" ;;
+          SKILLS_MODE=*) MANIFEST_SKILLS_MODE="${line#SKILLS_MODE=}" ;;
+          SKILLS=*)      MANIFEST_SKILLS="${line#SKILLS=}" ;;
+        esac
+      done <<< "$plan"
+      return 0
+    fi
+  fi
+
+  case "$PROFILE" in
+    minimal)
+      MANIFEST_MODULES="|core-templates|core-hooks|"
+      MANIFEST_SKILLS_MODE="none"
+      ;;
+    core)
+      MANIFEST_MODULES="|core-templates|core-hooks|core-skills|core-agents|core-rules|core-contexts|"
+      MANIFEST_SKILLS_MODE="list"
+      MANIFEST_SKILLS="|repo-map-compressor|adversarial-diff-audit|roi-loop-orchestrator|software-architect|"
+      ;;
+    security)
+      MANIFEST_MODULES="|core-templates|core-hooks|core-rules|security-skills|"
+      MANIFEST_SKILLS_MODE="list"
+      MANIFEST_SKILLS="|repo-map-compressor|adversarial-diff-audit|agent-security-hardening|"
+      ;;
+    developer|full)
+      MANIFEST_MODULES="|core-templates|core-hooks|core-agents|core-commands|core-rules|core-contexts|all-skills|"
+      MANIFEST_SKILLS_MODE="all"
+      ;;
+  esac
+}
+
+load_manifest_plan
+
+has_module() {
+  [[ "$MANIFEST_MODULES" == *"|$1|"* ]]
+}
+
 log_action() {
   if [[ $DRY_RUN -eq 1 ]]; then
     echo "[dry-run] $1"
   else
     echo "$1"
-  fi
-}
-
-resolve_abs() {
-  local p="$1"
-  if [[ -d "$p" ]]; then
-    (cd -P "$p" 2>/dev/null && pwd)
-  elif [[ -e "$p" ]]; then
-    local d b
-    d="$(cd -P "$(dirname "$p")" 2>/dev/null && pwd)"
-    b="$(basename "$p")"
-    echo "$d/$b"
-  else
-    echo "$p"
   fi
 }
 
@@ -169,29 +250,20 @@ unlink_item() {
   fi
 }
 
-include_agents() {
-  [[ "$PROFILE" == "core" || "$PROFILE" == "developer" || "$PROFILE" == "full" ]]
-}
-
-include_skills() {
-  [[ "$PROFILE" != "minimal" ]]
-}
-
 skill_allowed() {
   local skill_name="$1"
-  if [[ "$PROFILE" == "core" ]]; then
-    [[ "$skill_name" == "repo-map-compressor" || "$skill_name" == "adversarial-diff-audit" || "$skill_name" == "roi-loop-orchestrator" || "$skill_name" == "software-architect" ]]
-    return $?
-  elif [[ "$PROFILE" == "security" ]]; then
-    [[ "$skill_name" == "repo-map-compressor" || "$skill_name" == "adversarial-diff-audit" || "$skill_name" == "agent-security-hardening" ]]
+  if [[ "$MANIFEST_SKILLS_MODE" == "all" ]]; then
+    return 0
+  elif [[ "$MANIFEST_SKILLS_MODE" == "list" ]]; then
+    [[ "$MANIFEST_SKILLS" == *"|${skill_name}|"* ]]
     return $?
   fi
-  return 0
+  return 1
 }
 
 sync_runtime_skills() {
   local target_dir="$1"
-  if ! include_skills && [[ $UNINSTALL -eq 0 ]]; then
+  if [[ "$MANIFEST_SKILLS_MODE" == "none" && $UNINSTALL -eq 0 ]]; then
     return 0
   fi
   if [[ -d "$AXN_ROOT/skills" ]]; then
@@ -211,7 +283,7 @@ sync_runtime_skills() {
 sync_runtime_agents() {
   local target_dir="$1"
   local ext="$2"
-  if ! include_agents && [[ $UNINSTALL -eq 0 ]]; then
+  if ! has_module "core-agents" && [[ $UNINSTALL -eq 0 ]]; then
     return 0
   fi
   if [[ -d "$AXN_ROOT/agents" ]]; then
@@ -226,6 +298,135 @@ sync_runtime_agents() {
       fi
     done
   fi
+}
+
+wire_claude_hooks() {
+  local settings_path="$HOME/.claude/settings.json"
+  if [[ -z "$PYTHON_BIN" ]]; then
+    echo "[warn] python/python3 not found; skipping --wire-hooks for $settings_path" >&2
+    return 0
+  fi
+  if [[ -L "$settings_path" ]]; then
+    echo "[warn] Refusing to modify symlinked $settings_path" >&2
+    return 1
+  fi
+  "$PYTHON_BIN" - "$settings_path" "$UNINSTALL" "$DRY_RUN" "$TIMESTAMP" <<'PYEOF'
+import json, os, shutil, sys, tempfile
+
+settings_path, uninstall_flag, dry_run_flag, ts = sys.argv[1:5]
+uninstall = uninstall_flag == "1"
+dry_run = dry_run_flag == "1"
+
+AXN_HOOKS = [
+    ("PreToolUse", "Bash|Write|Edit|Read", "~/.claude/hooks/pre-tool-use/blast-radius-guard.sh"),
+    ("PreToolUse", "Write|Edit", "~/.claude/hooks/pre-tool-use/config-protection.sh"),
+    ("PreToolUse", "Read|Bash", "~/.claude/hooks/pre-tool-use/token-budget-guard.sh"),
+    ("PostToolUse", "Edit|Write", "~/.claude/hooks/post-tool-use/auto-verify-loop.sh"),
+    ("Stop", None, "~/.claude/hooks/stop/stop-gate-verifier.sh"),
+    ("Stop", None, "~/.claude/hooks/stop/orchestrator-feedback.sh"),
+]
+AXN_COMMANDS = {cmd for _, _, cmd in AXN_HOOKS}
+
+if os.path.isfile(settings_path):
+    with open(settings_path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        raise ValueError(f"{settings_path} must contain a JSON object")
+else:
+    if uninstall:
+        print(f"[ok] no settings.json to unwire: {settings_path}")
+        sys.exit(0)
+    data = {}
+
+hooks_obj = data.setdefault("hooks", {})
+if not isinstance(hooks_obj, dict):
+    raise ValueError(f"{settings_path} 'hooks' must be a JSON object")
+
+changed = 0
+
+if uninstall:
+    for event in ("PreToolUse", "PostToolUse", "Stop"):
+        entries = hooks_obj.get(event)
+        if not isinstance(entries, list):
+            continue
+        kept_entries = []
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+                kept_entries.append(entry)
+                continue
+            new_hooks = [
+                h for h in entry["hooks"]
+                if not (isinstance(h, dict) and h.get("command") in AXN_COMMANDS)
+            ]
+            if len(new_hooks) != len(entry["hooks"]):
+                changed += len(entry["hooks"]) - len(new_hooks)
+            if new_hooks:
+                updated = dict(entry)
+                updated["hooks"] = new_hooks
+                kept_entries.append(updated)
+        if kept_entries:
+            hooks_obj[event] = kept_entries
+        else:
+            hooks_obj.pop(event, None)
+    if not hooks_obj:
+        data.pop("hooks", None)
+    action_label = "unwired"
+else:
+    for event, matcher, cmd in AXN_HOOKS:
+        entries = hooks_obj.setdefault(event, [])
+        if not isinstance(entries, list):
+            raise ValueError(f"{settings_path} hooks.{event} must be a list")
+        exists = any(
+            isinstance(entry, dict)
+            and any(isinstance(h, dict) and h.get("command") == cmd for h in entry.get("hooks", []))
+            for entry in entries
+        )
+        if exists:
+            continue
+        if matcher is None:
+            stop_entry = next(
+                (e for e in entries if isinstance(e, dict) and "matcher" not in e and isinstance(e.get("hooks"), list)),
+                None,
+            )
+            hook_item = {"type": "command", "command": cmd}
+            if stop_entry is not None:
+                stop_entry["hooks"].append(hook_item)
+            else:
+                entries.append({"hooks": [hook_item]})
+        else:
+            entries.append({
+                "matcher": matcher,
+                "hooks": [{"type": "command", "command": cmd}],
+            })
+        changed += 1
+    action_label = "wired"
+
+if changed == 0:
+    print(f"[ok] hooks already {action_label}: {settings_path}")
+    sys.exit(0)
+
+prefix = "[dry-run] " if dry_run else ""
+if os.path.isfile(settings_path):
+    bak_path = f"{settings_path}.bak.{ts}"
+    print(f"{prefix}[backup] {settings_path} -> {bak_path}")
+    if not dry_run:
+        shutil.copy2(settings_path, bak_path)
+
+print(f"{prefix}[wire-hooks] {action_label} {changed} hook(s) in {settings_path}")
+if not dry_run:
+    parent = os.path.dirname(settings_path)
+    os.makedirs(parent, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(prefix=".settings-", suffix=".tmp", dir=parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
+            fh.write("\n")
+        os.replace(tmp_path, settings_path)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+PYEOF
 }
 
 sync_claude() {
@@ -244,17 +445,14 @@ sync_claude() {
     link_item "$AXN_ROOT/templates/GLOBAL_AGENTS.md" "$base/CLAUDE.md"
     link_item "$AXN_ROOT/config/cost-tiers.yaml" "$base/cost-tiers.yaml"
     link_item "$AXN_ROOT/hooks" "$base/hooks"
-    if [[ "$PROFILE" == "developer" || "$PROFILE" == "full" ]]; then
-      link_item "$AXN_ROOT/commands" "$base/commands"
-    fi
-    if [[ "$PROFILE" != "minimal" ]]; then
-      link_item "$AXN_ROOT/rules" "$base/rules"
-    fi
-    if [[ "$PROFILE" == "core" || "$PROFILE" == "developer" || "$PROFILE" == "full" ]]; then
-      link_item "$AXN_ROOT/contexts" "$base/contexts"
-    fi
+    has_module "core-commands" && link_item "$AXN_ROOT/commands" "$base/commands"
+    has_module "core-rules" && link_item "$AXN_ROOT/rules" "$base/rules"
+    has_module "core-contexts" && link_item "$AXN_ROOT/contexts" "$base/contexts"
     sync_runtime_skills "$base/skills"
     sync_runtime_agents "$base/agents" "md"
+  fi
+  if [[ $WIRE_HOOKS -eq 1 ]]; then
+    wire_claude_hooks
   fi
 }
 
@@ -272,9 +470,7 @@ sync_cursor() {
     link_item "$AXN_ROOT/templates/GLOBAL_AGENTS.md" "$base/rules/global.mdc"
     link_item "$AXN_ROOT/config/cost-tiers.yaml" "$base/cost-tiers.yaml"
     link_item "$AXN_ROOT/hooks" "$base/hooks"
-    if [[ "$PROFILE" == "developer" || "$PROFILE" == "full" ]]; then
-      link_item "$AXN_ROOT/commands" "$base/commands"
-    fi
+    has_module "core-commands" && link_item "$AXN_ROOT/commands" "$base/commands"
     sync_runtime_skills "$base/skills"
     sync_runtime_agents "$base/rules" "mdc"
   fi
@@ -294,6 +490,15 @@ sync_codex() {
   fi
 }
 
+sync_cli_shims() {
+  local bin_dir="$HOME/.local/bin"
+  if [[ $UNINSTALL -eq 1 ]]; then
+    unlink_item "$bin_dir/axn-router"
+  else
+    link_item "$AXN_ROOT/scripts/learn-router.py" "$bin_dir/axn-router"
+  fi
+}
+
 print_routing_hints() {
   echo ""
   echo "=== 4-Tier Multi-Provider Cost Routing Hints (optional shell setup) ==="
@@ -305,9 +510,10 @@ print_routing_hints() {
   echo "  Local (\$0)  : MLX / LM Studio Qwen3.5-9B or Ollama (http://localhost:1234/v1)"
 }
 
-echo "AXN Root: $AXN_ROOT (profile=$PROFILE, dry_run=$DRY_RUN, uninstall=$UNINSTALL)"
+echo "AXN Root: $AXN_ROOT (profile=$PROFILE, dry_run=$DRY_RUN, uninstall=$UNINSTALL, wire_hooks=$WIRE_HOOKS)"
 [[ $SYNC_CLAUDE -eq 1 ]] && sync_claude
 [[ $SYNC_CURSOR -eq 1 ]] && sync_cursor
 [[ $SYNC_CODEX -eq 1 ]] && sync_codex
+sync_cli_shims
 [[ $UNINSTALL -eq 0 ]] && print_routing_hints
 echo "Done."

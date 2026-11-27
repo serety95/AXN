@@ -11,7 +11,6 @@ Deterministic, zero-token shell guardrails organized by agent lifecycle event.
 - `stop/stop-gate-verifier.sh` — `Stop`: runs repo-root `.ai/verify.cmd` (when present and inside repo boundaries) before allowing the agent to finish; exits `2` on failure and respects `stop_hook_active` to prevent infinite loops.
 - `stop/orchestrator-feedback.sh` — `Stop`: fail-open (`exit 0`) telemetry collector that prioritizes `last_assistant_message` over `transcript_path`, rejects `<...>`/`|` placeholders, filters `instincts_used` (`SAFE_ID_RE`, max 16), merges deterministic `passed`, `retries`, and sanitized `failure_signatures` (`ruff:.py`, `stop-gate:pytest`) from repo-scoped `${AXN_STRIKE_DIR}/${REPO_KEY}/turn-state.json` + `.count` files, and pipes JSON via stdin to `scripts/learn-router.py --ingest-stdin`.
 - `pre-submit-prompt/route-skills.mjs` — `beforeSubmitPrompt` (Cursor / prompt-router): fail-open keyword router injecting relevant AXN skill/agent suggestions.
-- **ECC Hook Superset (`hooks.json`, `hooks.metadata.json`, `codex-hooks.json`, `antigravity-hooks.json`, `qoder-hooks.json`, `memory-persistence/`, `hermes/`, `scripts/hooks/`, `scripts/lib/`)**: Full ECC cross-runtime hook manifests and Node/shell hook library imported alongside AXN's zero-dependency `.sh` guardrails (`ecc-README.md` documents the ECC layout).
 
 ## Hook Contract
 

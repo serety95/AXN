@@ -19,24 +19,31 @@ block() {
   exit 2
 }
 
-read_bounded_stdin() {
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -c '
-import sys
+extract_bounded_file_path() {
+  if command -v jq >/dev/null 2>&1; then
+    local payload
+    payload="$(head -c $((MAX_BYTES + 1)))"
+    [ "${#payload}" -le "$MAX_BYTES" ] || return 42
+    [ -z "${payload//[[:space:]]/}" ] && return 0
+    printf '%s' "$payload" | jq -r '(.tool_input.file_path // .tool_input.path // .tool_input.TargetFile // .tool_input.Path // .toolInput.file_path // .toolInput.path // .toolInput.TargetFile // .toolInput.Path // "")' || return 2
+  elif command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
+    local py_bin="python3"
+    command -v python3 >/dev/null 2>&1 || py_bin="python"
+    "$py_bin" -c '
+import json, sys
 max_b = int(sys.argv[1])
 data = sys.stdin.buffer.read(max_b + 1)
 if len(data) > max_b:
     sys.exit(42)
-sys.stdout.buffer.write(data)
-' "$MAX_BYTES"
-  elif command -v python >/dev/null 2>&1; then
-    python -c '
-import sys
-max_b = int(sys.argv[1])
-data = sys.stdin.buffer.read(max_b + 1)
-if len(data) > max_b:
-    sys.exit(42)
-sys.stdout.buffer.write(data)
+text = data.decode("utf-8", errors="replace").strip()
+if not text:
+    sys.exit(0)
+try:
+    d = json.loads(text)
+except Exception:
+    sys.exit(2)
+ti = (d.get("tool_input") or d.get("toolInput") or {}) if isinstance(d, dict) else {}
+print(str(ti.get("file_path") or ti.get("path") or ti.get("TargetFile") or ti.get("Path") or "") if isinstance(ti, dict) else "")
 ' "$MAX_BYTES"
   elif command -v node >/dev/null 2>&1; then
     node -e '
@@ -44,53 +51,24 @@ const fs = require("fs");
 const maxB = Number(process.argv[1]);
 const buf = fs.readFileSync(0);
 if (buf.length > maxB) process.exit(42);
-process.stdout.write(buf);
-' "$MAX_BYTES"
-  else
-    local chunk
-    chunk="$(head -c $((MAX_BYTES + 1)))"
-    [ "${#chunk}" -le "$MAX_BYTES" ] || return 42
-    printf '%s' "$chunk"
-  fi
-}
-
-PAYLOAD=""
-if ! PAYLOAD="$(read_bounded_stdin)"; then
-  block "Hook input exceeded ${MAX_BYTES} bytes (fail-closed)."
-fi
-
-[ -z "${PAYLOAD//[[:space:]]/}" ] && exit 0
-
-extract_file_path() {
-  if command -v jq >/dev/null 2>&1; then
-    printf '%s' "$PAYLOAD" | jq -r '(.tool_input.file_path // .tool_input.path // .toolInput.file_path // .toolInput.path // "")'
-  elif command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
-    local py_bin="python3"
-    command -v python3 >/dev/null 2>&1 || py_bin="python"
-    printf '%s' "$PAYLOAD" | "$py_bin" -c '
-import json, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    sys.exit(2)
-ti = (d.get("tool_input") or d.get("toolInput") or {}) if isinstance(d, dict) else {}
-print(str(ti.get("file_path") or ti.get("path") or "") if isinstance(ti, dict) else "")
-'
-  elif command -v node >/dev/null 2>&1; then
-    printf '%s' "$PAYLOAD" | node -e '
-const fs = require("fs");
+const text = buf.toString("utf8").trim();
+if (!text) process.exit(0);
 let d;
-try { d = JSON.parse(fs.readFileSync(0, "utf8")); } catch { process.exit(2); }
+try { d = JSON.parse(text); } catch { process.exit(2); }
 const ti = (d && (d.tool_input || d.toolInput)) || {};
-console.log(String(ti.file_path || ti.path || ""));
-'
+console.log(String(ti.file_path || ti.path || ti.TargetFile || ti.Path || ""));
+' "$MAX_BYTES"
   else
     block "No JSON parser available."
   fi
 }
 
 FILE_PATH=""
-if ! FILE_PATH="$(extract_file_path)"; then
+RC=0
+FILE_PATH="$(extract_bounded_file_path)" || RC=$?
+if [ "$RC" -eq 42 ]; then
+  block "Hook input exceeded ${MAX_BYTES} bytes (fail-closed)."
+elif [ "$RC" -ne 0 ]; then
   block "Malformed JSON payload on stdin (fail-closed)."
 fi
 

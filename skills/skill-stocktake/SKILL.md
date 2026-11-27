@@ -42,22 +42,22 @@ If the project has no `.claude/skills/` directory, only global skills and comman
 
 The shell scripts require Bash, Node.js, and `jq` on `PATH`.
 
-**Results cache:** `~/.claude/skills/skill-stocktake/results.json`
+**Results cache:** `\/skill-stocktake/results.json`
 
 ## Quick Scan Flow
 
 Re-evaluate only skills that have changed since the last run (5–10 min).
 
-1. Read `~/.claude/skills/skill-stocktake/results.json`
-2. Run: `bash ~/.claude/skills/skill-stocktake/scripts/quick-diff.sh \
-         ~/.claude/skills/skill-stocktake/results.json`
+1. Read `\/skill-stocktake/results.json`
+2. Run: `bash \/skill-stocktake/scripts/quick-diff.sh \
+         \/skill-stocktake/results.json`
    (Project dir is auto-detected from `$PWD/.claude/skills`; pass it explicitly only if needed)
 3. If output is `[]`: report "No changes since last run." and stop
 4. Re-evaluate only those changed files using the same Phase 2 criteria
 5. Carry forward unchanged skills from previous results
 6. Output only the diff
-7. Run: `bash ~/.claude/skills/skill-stocktake/scripts/save-results.sh \
-         ~/.claude/skills/skill-stocktake/results.json <<< "$EVAL_RESULTS"`
+7. Run: `bash \/skill-stocktake/scripts/save-results.sh \
+         \/skill-stocktake/results.json <<< "$EVAL_RESULTS"`
 
 ## Full Stocktake Flow
 
@@ -68,9 +68,9 @@ Run this entire block in **one Bash invocation**. It prints the inventory for th
 ```bash
 (
   set -euo pipefail
-  SCAN_JSON=$(bash ~/.claude/skills/skill-stocktake/scripts/scan.sh)
+  SCAN_JSON=$(bash \/skill-stocktake/scripts/scan.sh)
   printf '%s\n' "$SCAN_JSON"
-  RESULTS_JSON=~/.claude/skills/skill-stocktake/results.json
+  RESULTS_JSON=\/skill-stocktake/results.json
 
   CACHE_STATUS=""
   if [[ -f "$RESULTS_JSON" ]]; then
@@ -92,14 +92,14 @@ Run this entire block in **one Bash invocation**. It prints the inventory for th
           evaluated: (.skills | length), status: "in_progress"
         }
     ' <<< "$SCAN_JSON")
-    bash ~/.claude/skills/skill-stocktake/scripts/save-results.sh \
+    bash \/skill-stocktake/scripts/save-results.sh \
       "$RESULTS_JSON" --replace <<< "$RESUMED_RESULTS"
   else
     INITIAL_RESULTS=$(printf '%s\n' "$SCAN_JSON" | jq '{
       mode: "full", skills: {},
       batch_progress: {total: (.skills | length), evaluated: 0, status: "in_progress"}
     }')
-    bash ~/.claude/skills/skill-stocktake/scripts/save-results.sh \
+    bash \/skill-stocktake/scripts/save-results.sh \
       "$RESULTS_JSON" --replace <<< "$INITIAL_RESULTS"
   fi
 )
@@ -131,8 +131,8 @@ The subagent reads each assigned skill, applies the checklist, and returns a JSO
 **Chunk guidance:** Process ~20 skills per subagent invocation to keep context manageable. After each chunk, wrap its returned `skills` map with `mode: "full"` and `batch_progress: {total, evaluated, status: "in_progress"}`. Set `total` to the inventory size and `evaluated` to the cumulative number of distinct evaluated paths, including saved batches. Assign this JSON to `CHUNK_RESULTS` and run the following command in the **same Bash invocation as that assignment**:
 
 ```bash
-bash ~/.claude/skills/skill-stocktake/scripts/save-results.sh \
-  ~/.claude/skills/skill-stocktake/results.json <<< "$CHUNK_RESULTS"
+bash \/skill-stocktake/scripts/save-results.sh \
+  \/skill-stocktake/results.json <<< "$CHUNK_RESULTS"
 ```
 
 After all skills are evaluated, persist completion before proceeding to Phase 3:
@@ -140,7 +140,7 @@ After all skills are evaluated, persist completion before proceeding to Phase 3:
 ```bash
 (
   set -euo pipefail
-  RESULTS_JSON=~/.claude/skills/skill-stocktake/results.json
+  RESULTS_JSON=\/skill-stocktake/results.json
   COMPLETED_RESULTS=$(jq -e '
     if (.skills | length) == .batch_progress.total then
       {skills: {}, mode: "full", batch_progress: (.batch_progress + {
@@ -148,7 +148,7 @@ After all skills are evaluated, persist completion before proceeding to Phase 3:
       })}
     else error("Inventory still has unevaluated skills") end
   ' "$RESULTS_JSON")
-  bash ~/.claude/skills/skill-stocktake/scripts/save-results.sh \
+  bash \/skill-stocktake/scripts/save-results.sh \
     "$RESULTS_JSON" <<< "$COMPLETED_RESULTS"
 )
 ```
@@ -214,7 +214,7 @@ Evaluation is **holistic AI judgment** — not a numeric rubric. Guiding dimensi
 
 ## Results File Schema
 
-`~/.claude/skills/skill-stocktake/results.json`:
+`\/skill-stocktake/results.json`:
 
 **`evaluated_at`**: Must be set to the actual UTC time of evaluation completion.
 Obtain via Bash: `date -u +%Y-%m-%dT%H:%M:%SZ`. Never use a date-only approximation like `T00:00:00Z`.

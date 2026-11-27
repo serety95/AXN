@@ -11,11 +11,11 @@ Implements the `Distill/Prune` stage of AXN's 7-stage ROI loop (`Preflight -> Ra
 
 - After resolving a non-trivial root cause or environment quirk
 - After a user corrects an approach, naming convention, or workflow assumption
-- When `python scripts/learn-router.py --roi-report` surfaces recurring `failure_signatures` (`count >= 2`) or unused `instincts/INDEX.md` entries
+- When `axn-router --roi-report` (or `python ~/.axn/scripts/learn-router.py --roi-report`) surfaces recurring `failure_signatures` (`count >= 2`) or unused `instincts/INDEX.md` entries
 
 ## Instinct Lifecycle
 
-1. **Observe & Query Telemetry:** Run `python scripts/learn-router.py --roi-report` (if state exists) to inspect:
+1. **Observe & Query Telemetry:** Run `axn-router --roi-report` (or `python ~/.axn/scripts/learn-router.py --roi-report`, if state exists) to inspect:
    - Recurring `failure_signatures` (`count >= 2`) ready for codification
    - `instinct_stats` pass-rate lift vs unused `instincts/INDEX.md` bloat candidates
 2. **Distill:** Write an atomic instinct entry (valid ID `^[a-z0-9][a-z0-9_-]{0,63}$`) into `instincts/` and register it in `instincts/INDEX.md`.

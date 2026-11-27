@@ -159,7 +159,7 @@ allowed_users = {"your-username", "username", "user", "name", "example"}
 secret_re = re.compile(r'(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|BEGIN (?:RSA|OPENSSH|EC) PRIVATE KEY)')
 unsafe_unicode = re.compile(r'[\u200b-\u200f\u202a-\u202e\u2066-\u2069]')
 
-scan_roots = ["skills", "agents", "commands", "rules", "contexts", "schemas", "config", "hooks", "templates", "manifests", "docs", "instincts", "scripts", "tools"]
+scan_roots = ["skills", "agents", "commands", "rules", "contexts", "schemas", "config", "hooks", "templates", "manifests", "docs", "instincts", "scripts", "tools", "tests"]
 scan_files = [os.path.join(root, f) for f in ("README.md", "TROUBLESHOOTING.md", "SECURITY.md") if os.path.isfile(os.path.join(root, f))]
 for sr in scan_roots:
     p = os.path.join(root, sr)
@@ -224,11 +224,29 @@ else:
             if req not in ct_text:
                 errors.append(f"config/cost-tiers.yaml: missing '{req}'")
 
+# E. Manifest cross-reference integrity check
+modules_path = os.path.join(root, "manifests", "install-modules.json")
+profiles_path = os.path.join(root, "manifests", "install-profiles.json")
+if os.path.isfile(modules_path) and os.path.isfile(profiles_path):
+    with open(modules_path, "r", encoding="utf-8") as fh:
+        mods_doc = json.load(fh)
+    with open(profiles_path, "r", encoding="utf-8") as fh:
+        profs_doc = json.load(fh)
+    mod_map = {m["id"]: m for m in mods_doc.get("modules", []) if isinstance(m, dict) and "id" in m}
+    for pname, pobj in profs_doc.get("profiles", {}).items():
+        for mid in pobj.get("modules", []):
+            if mid not in mod_map:
+                errors.append(f"manifests/install-profiles.json: profile '{pname}' references unknown module '{mid}'")
+    for mid, mod in mod_map.items():
+        for rel in mod.get("paths", []):
+            if not os.path.exists(os.path.join(root, rel)):
+                errors.append(f"manifests/install-modules.json: module '{mid}' references missing path '{rel}'")
+
 if errors:
     for e in errors:
         print(f"[FAIL] {e}", file=sys.stderr)
     sys.exit(1)
-print("[PASS] Frontmatter, <500-line, personal-path, Unicode, secret, and JSON checks passed")
+print("[PASS] Frontmatter, <500-line, personal-path, Unicode, secret, JSON, and manifest checks passed")
 PYEOF
   then
     :
@@ -250,6 +268,15 @@ PYEOF
       :
     else
       fail "scripts/learn-router.py --self-test failed"
+    fi
+  fi
+
+  # 6. Regression test suite (tests/)
+  if [[ -d "$AXN_ROOT/tests" ]]; then
+    if PYTHONDONTWRITEBYTECODE=1 "$PYTHON_BIN" -m unittest discover -s "$AXN_ROOT/tests" -p "test_*.py"; then
+      pass "Regression test suite (tests/) passed"
+    else
+      fail "Regression test suite (tests/) failed"
     fi
   fi
 else
